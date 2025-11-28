@@ -87,13 +87,16 @@ function getFormattedItemComparison(nodeItemName, nodeItemId, nodeRarityId, prev
          idComp = (nodeItemId === prevItemId) ? `=${targetDisplay}` : `≠${targetDisplay}`;
     }
     
-    const isDupe = (nodeRarityId === 1 && nodeItemId !== -1 && nodeItemId === prevItemId);
-    
     const text = `${nodeItemName}(${nodeItemId}(${rComp})${idComp})`;
-    return { text, isDupe };
+    return { text, isDupe: (nodeRarityId === 1 && nodeItemId !== -1 && nodeItemId === prevItemId) };
 }
 
-function generateItemLink(newSeed, newItemId, initialInputNg, rollNumberInSequence, isCompleted) {
+/**
+ * アイテムリンク生成ヘルパー
+ * fs: 現在の残り目玉数 (指定がない場合はnull/undefined)
+ * ng: 次の確定までの回数 (指定がない場合は計算しない、またはnone)
+ */
+function generateItemLink(newSeed, newItemId, ngVal, rollNumberInSequence, isCompleted, fsVal) {
     // グローバルの activeGachaId を参照
     const gId = window.activeGachaId; 
     const currentParams = new URLSearchParams(window.location.search);
@@ -104,23 +107,25 @@ function generateItemLink(newSeed, newItemId, initialInputNg, rollNumberInSequen
     paramsForQuery.seed = newSeed;
     if (newItemId !== undefined) paramsForQuery.lr = newItemId;
 
-    const initialInputNgInt = parseInt(initialInputNg, 10);
-    if (initialInputNg !== 'none' && !isNaN(initialInputNgInt) && rollNumberInSequence !== undefined) {
-        if (isCompleted) {
-            const rollInCycle = (rollNumberInSequence - 1) % 10;
-            let ngValue = initialInputNgInt - 1 - rollInCycle;
-            if (ngValue <= 0) ngValue += 10;
-            paramsForQuery.ng = ngValue.toString();
+    // fsパラメータの設定
+    if (fsVal !== undefined && fsVal !== null && !isNaN(fsVal)) {
+        paramsForQuery.fs = fsVal;
+    }
+
+    // ngパラメータの設定
+    // 引数で明示的に渡された場合のみ設定する方針
+    if (ngVal !== undefined && ngVal !== null) {
+        if (ngVal === 'none') {
+             paramsForQuery.ng = 'none';
         } else {
-            const gacha = gachaMaster[gId];
-            const periodicity = gacha.guaranteedCycle || 30;
-            let ngValue = initialInputNgInt;
-            ngValue = ngValue - 1;
-            if (ngValue <= 0) ngValue = periodicity;
-            paramsForQuery.ng = ngValue.toString();
+             paramsForQuery.ng = ngVal.toString();
         }
     } else {
-        paramsForQuery.ng = 'none';
+        // 既存ロジック互換（今回は使用しないが念のため残す）
+        const initialInputNg = paramsForQuery.ng; // 元のクエリから取得
+        // ...既存の計算ロジックが必要ならここに記述...
+        // 今回は呼び出し元で計算した値を渡すため、ここはスルー
     }
+    
     return generateUrlQuery(paramsForQuery);
 }

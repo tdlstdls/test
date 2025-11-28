@@ -10,7 +10,8 @@ function calculateUncompletedData(initialSeed, gacha, tableRows, thresholds, ini
     
     // 2. 全ノード計算
     const Nodes = [];
-    const maxNodes = tableRows * 3 + 20;
+    // maxNodesはテーブル表示に必要な分より多めに確保
+    const maxNodes = tableRows * 3 + 20; 
     
     // 表示用配列 (Addressとは非同期のリスト)
     const tenPullDisplayLines = [];
@@ -19,32 +20,45 @@ function calculateUncompletedData(initialSeed, gacha, tableRows, thresholds, ini
     const highlightInfo = new Map(); 
 
     for (let i = 1; i <= maxNodes; i++) {
-        const seedStartIdx = (i - 1) * 3 + 1;
+        // ★修正点 1: シード割り当てを連番に変更 (スライディングウィンドウ)
+        // Node i が Seed i (配列インデックス i-1) から始まるようにする
+        const seedStartIdx = i; 
+        
         const s1 = SEED[seedStartIdx];     
         const s2 = SEED[seedStartIdx + 1]; 
         const s3 = SEED[seedStartIdx + 2]; 
         const s4 = SEED[seedStartIdx + 3]; 
         const s5 = SEED[seedStartIdx + 4]; 
+        
+        // ★修正点 2: seed1の計算元シード (直前のシード)
+        // i=1 の場合 SEED[-1] となるため undefined/null 許容
+        let prevSeedVal = SEED[seedStartIdx - 1];
 
         const node = {
             index: i,
             address: getAddress(i),
             seed1: s1, seed2: s2, seed3: s3, seed4: s4, seed5: s5,
+            prevSeed1: prevSeedVal, // ★表示に使用: seed1の計算元シード
             isFeatured: (s1 % 10000) < gacha.featuredItemRate,
             singleRoll: null, singleUseSeeds: null, singleNextAddr: null,
-            // ★修正: singleIsRerollとsingleCompareItemNameを初期化
             singleIsReroll: false,  
             singleCompareItemName: '---', 
-            singleCompareItemId: -1, // ★追加: 比較対象IDを初期化
+            singleCompareItemId: -1, 
             tenPullMark: null, tenPullUseSeeds: null, tenPullNextAddr: null,  
         };
 
-        node.featuredNextAddress = getAddress(i + 1);
-        node.normalNextAddress = getAddress(i + 3);
-        node.reRollNextAddress = getAddress(i + 4);
+
+        // ★修正点 3: Next Address の計算 (消費シード数 = 進むノード数となるため、そのまま加算)
+        // Featured=1シード消費 -> +1 Node
+        // Normal=3シード消費 -> +3 Node
+        // Reroll=4シード消費 -> +4 Node
+        node.featuredNextAddress = getAddress(i + 1); 
+        node.normalNextAddress = getAddress(i + 3);   
+        node.reRollNextAddress = getAddress(i + 4);   
 
         node.rarity = getRarityFromRoll(s2 % 10000, thresholds);
         node.rarityId = node.rarity.id;
+        node.rarityName = node.rarity.name; 
         node.rarityRoll = s2 % 10000;
         node.rarityGId = null; node.itemGId = -1; node.itemGName = '---';
 
@@ -73,33 +87,65 @@ function calculateUncompletedData(initialSeed, gacha, tableRows, thresholds, ini
             node.reRollItemId = -1; node.reRollItemName = '---';
         }
 
-        // Duplication Status Logic (単発ルートの比較対象とは異なるロジックのため注意)
-        let prevItemDupeId = -1;
-        let pNode = null;
-        if (i <= 3) { 
-            prevItemDupeId = initialLastRollId || -1;
+        // Duplication Status Logic (単発ルート外の比較ロジック: 3 Node前/4 Node前の参照と ReRollItem の考慮)
+        let compareId3Node = -1; 
+        let compareId4Node = -1; 
+        let compareName3Node = '---';
+        let compareName4Node = '---';
+        
+        // i-1 (3シード前) などの参照ロジック
+        if (i <= 1) { 
+            compareId3Node = initialLastRollId || -1;
+            compareName3Node = getItemNameSafe(initialLastRollId || -1);
         } else {
-            pNode = Nodes[i-4]; 
-            // 添付ファイルでは pNode の null チェックが漏れていましたが、安全のため追加します
-            prevItemDupeId = pNode ? pNode.itemId : -1; 
+            const pNode3 = (i > 3) ? Nodes[i-4] : null; 
+            if (pNode3) {
+                 compareId3Node = pNode3.itemId;
+                 compareName3Node = pNode3.itemName;
+            } else if (i <= 3) {
+                compareId3Node = initialLastRollId || -1;
+                compareName3Node = getItemNameSafe(initialLastRollId || -1);
+            }
+
+            const pNode4 = (i > 4) ? Nodes[i-5] : null;
+            if (pNode4) {
+                 if (pNode4.reRollItemId !== -1) { 
+                     compareId4Node = pNode4.reRollItemId;
+                     compareName4Node = pNode4.reRollItemName;
+                 }
+            }
+        }
+        
+        // 判定ロジック
+        const currentId = node.itemId;
+        const isDupe3 = (currentId !== -1 && currentId === compareId3Node);
+        const isDupe4 = (compareId4Node !== -1 && currentId === compareId4Node); 
+        node.isDupe = (node.rarityId === 1 && (isDupe3 || isDupe4)); 
+
+        // dupeCompareTargets を常に設定
+        if (node.rarityId === 1) {
+            const reRollTargetName = (compareId4Node !== -1) ? compareName4Node : '';
+            node.dupeCompareTargets = `${compareName3Node}${reRollTargetName ? ' / ' + reRollTargetName : ''}`; 
+        } else {
+            node.dupeCompareTargets = node.rarityName; // Non-Rarity 1 はレアリティ名
         }
 
-        node.isDupe = (node.rarityId === 1 && node.itemId !== -1 && node.itemId === prevItemDupeId);
-        node.itemNameForDisplay = getItemNameSafe(node.itemId);
-        node.prevItemDupeName = (i <= 3) ? getItemNameSafe(initialLastRollId || -1) : getItemNameSafe(pNode ? pNode.itemId : -1);
-
-        // Re-ReRoll Logic
-        let prevReRollTargetId = (i <= 3) ? (initialLastRollId || -1) : (pNode ? pNode.reRollItemId : -1); // 添付ファイルでは pNode の null チェックが漏れていました
-        node.prevReRollTargetName = getItemNameSafe(prevReRollTargetId);
-        node.isReReDupe = (node.rarityId === 1 && node.itemId !== -1 && node.itemId === prevReRollTargetId);
-        node.reReDupeSourceItemName = getItemNameSafe(node.itemId);
+        // 表示用の DupeName を決定
+        if (node.isDupe) {
+            const reRollTargetName = (compareId4Node !== -1) ? compareName4Node : '';
+            node.prevItemDupeName = compareName3Node;
+            node.itemNameForDisplay = `${node.itemName} vs ${node.prevItemDupeName}${reRollTargetName ? ' / ' + reRollTargetName : ''}`; 
+        } else {
+            node.itemNameForDisplay = getItemNameSafe(node.itemId);
+            node.prevItemDupeName = compareName3Node; 
+        }
 
         Nodes.push(node);
     }
     
     // 3. 単発ルート計算
     let sIdx = 1; 
-    let sLastActualItemId = initialLastRollId || -1; // Roll #1 の比較対象は Last Roll のアイテム
+    let sLastActualItemId = initialLastRollId || -1; 
     const singleRoutePath = new Map();
     const ngVal = parseInt(params.get('ng'), 10);
     const hasGuaranteed = !isNaN(ngVal);
@@ -113,10 +159,9 @@ function calculateUncompletedData(initialSeed, gacha, tableRows, thresholds, ini
         
         const isGuaranteedRoll = hasGuaranteed && (currentNg === 1); 
         
-        // 判定に使用する比較対象アイテム名を取得しノードに保存 (目玉/確定枠通過前)
         const compareItemName = getItemNameSafe(sLastActualItemId);
         node.singleCompareItemName = compareItemName;
-        node.singleCompareItemId = sLastActualItemId; // ★追加: 比較対象IDをノードに保存
+        node.singleCompareItemId = sLastActualItemId; 
 
         if (isGuaranteedRoll) {
             node.singleRoll = `${roll}g`;
@@ -124,7 +169,6 @@ function calculateUncompletedData(initialSeed, gacha, tableRows, thresholds, ini
             node.singleNextAddr = getAddress(sIdx);
             node.singleIsReroll = false; 
             currentNg = guaranteedCycle; 
-            // sLastActualItemId は変更しない
             continue; 
         }
 
@@ -132,36 +176,31 @@ function calculateUncompletedData(initialSeed, gacha, tableRows, thresholds, ini
         let finalId = -1;
 
         if (node.isFeatured) {
-            usedSeeds = 1;
+            usedSeeds = 1; 
             finalId = -2; // 目玉排出を示す一時的なID
             node.singleRoll = roll;
             node.singleUseSeeds = usedSeeds;
-            node.singleNextAddr = node.featuredNextAddress;
+            node.singleNextAddr = node.featuredNextAddress; // getAddress(sIdx + 1)
             node.singleIsReroll = false; 
-            // sLastActualItemId は変更しない (次回の比較対象を飛ばす)
 
         } else {
             const isRare = (node.rarityId === 1);
             const poolSize = gacha.rarityItems[1] ? gacha.rarityItems[1].length : 0;
             
-            // レア被り判定の比較
-            // ★修正: 意図せぬ型変換による一致を防ぐため、IDを厳密に数値として比較します。
             const currentId = Number(node.itemId);
             const lastId = Number(sLastActualItemId);
             
-            // 厳密なID一致判定
             const isMatchByID = (currentId !== -1 && lastId !== -1 && currentId === lastId);
-            
-            // 最終的なマッチ判定
             const isMatch = isMatchByID; 
             
             // ReRoll判定ロジック
             const isReroll = isRare && isMatch && poolSize > 1; 
             
             finalId = isReroll ? node.reRollItemId : node.itemId;
+            
+            // 消費シード数（Node数）の決定
             usedSeeds = isReroll ? 4 : 3;
             
-            // ★修正: ReRollFlagをノードに保存
             node.singleIsReroll = isReroll; 
 
             // sLastActualItemId を新しい確定アイテムで更新
@@ -169,7 +208,7 @@ function calculateUncompletedData(initialSeed, gacha, tableRows, thresholds, ini
 
             node.singleRoll = roll;
             node.singleUseSeeds = usedSeeds;
-            node.singleNextAddr = isReroll ? node.reRollNextAddress : node.normalNextAddress;
+            node.singleNextAddr = isReroll ? node.reRollNextAddress : node.normalNextAddress; 
         }
         
         singleRoutePath.set(sIdx, roll);
@@ -178,7 +217,7 @@ function calculateUncompletedData(initialSeed, gacha, tableRows, thresholds, ini
             if (currentNg <= 0) currentNg = guaranteedCycle;
         }
         
-        sIdx = sIdx + usedSeeds;
+        sIdx = sIdx + usedSeeds; // sIdx は消費シード数分だけ進む (Nodeも連番なのでそのまま加算)
     }
 
     // 4. 10連ルート計算 (TenPull列のデータ行生成)
@@ -192,6 +231,7 @@ function calculateUncompletedData(initialSeed, gacha, tableRows, thresholds, ini
     let numGuaranteed = 0;
     
     // --- Phase 1: 目玉判定・確定枠 (Roll 1～10) ---
+    // S1〜S10 の Featured を使用
     let guaranteedText = ''; 
     const rollDisplayStartIndex = new Map(); 
     let currentDisplayIndex = 0;
@@ -199,7 +239,7 @@ function calculateUncompletedData(initialSeed, gacha, tableRows, thresholds, ini
 
     for (let i = 1; i <= 10; i++) {
         const isGuaranteedSlot = isTenPullGuaranteed && (i === tpNgVal);
-        const nodeIndex = i;
+        const nodeIndex = i; 
         
         if (isGuaranteedSlot) {
             featuredFlags.push({ isFeatured: false, isGuaranteed: true }); 
@@ -209,15 +249,17 @@ function calculateUncompletedData(initialSeed, gacha, tableRows, thresholds, ini
             rollDisplayStartIndex.set(i, currentDisplayIndex); 
             
         } else {
-            const checkSeedIndex = i - numGuaranteed;
-            const checkSeed = SEED[checkSeedIndex];
+            // S1〜S10 を使用するため、シードインデックスは i に固定
+            const checkSeedIndex = i; 
+            const checkSeed = SEED[checkSeedIndex - 1]; // SEEDは0始まりなので修正
             const isFeatured = (checkSeed % 10000) < gacha.featuredItemRate;
             featuredFlags.push({ isFeatured: isFeatured, isGuaranteed: false });
             
             if (nodeIndex <= maxNodes) {
                  const node = Nodes[nodeIndex - 1]; 
-                 const featuredText = isFeatured ? `True→目玉[${i}G]` : 'False';
+                 const featuredText = isFeatured ? `True→目玉[${i}G]` : `False`;
                  
+                 // ノード情報から表示
                  const seedDisplay = `${node.seed1}%10000=${node.seed1 % 10000}`;
                  
                  rollDisplayStartIndex.set(i, currentDisplayIndex);
@@ -238,134 +280,126 @@ function calculateUncompletedData(initialSeed, gacha, tableRows, thresholds, ini
         currentDisplayIndex++;
     }
 
-    let currentSeedIndex = (10 - numGuaranteed) + 1;
-    let nodeIndexOffset = 0;
-    let resultCount = 0; 
-
     // --- Phase 2: 詳細判定 (Rarity/Item/ReRoll) ---
+    // 10連での消費シード数を計算し、確定枠を考慮
+    // 10連の最初の10個のチェックに使うシード群の次は、S11から開始
+    let currentSeedIndex = 11; 
+
+    // Guaranteed枠はシード消費しないため、Featureチェックに使った分だけシードが進んでいる状態
+    // ただし、Featureチェックは確定枠以外で行われている。
+    // ここでは10連の結果生成のために、S11以降のシードを順番に消費していくロジック
+    // (Nodeテーブルとは独立して計算するが、結果はNodeに書き込む)
+
+    tLastItemId = initialLastRollId || -1; 
+    tIdx = 1; 
+
     for (let r = 1; r <= maxTenPullRolls; r++) {
         const flagData = featuredFlags[r-1];
-        const nodeIndex = tIdx + nodeIndexOffset;
+        const node = Nodes[tIdx - 1]; 
+        if (!node) continue;
+        
+        let useSeeds = 0;
+        let finalId = -1;
         
         if (flagData.isGuaranteed) {
-             const node = Nodes[r - 1]; 
-             if (node) {
-                 node.tenPullMark = `${r}g`;
-                 node.tenPullUseSeeds = 0;
-                 node.tenPullNextAddr = getAddress(r);
-             }
-             tenPullResults.push({text: '目玉(確定)', isFeatured: false}); 
-             resultCount++;
+             // Guaranteed Roll
+             node.tenPullMark = `${r}g`;
+             useSeeds = 0;
+             node.tenPullUseSeeds = useSeeds; 
+             node.tenPullNextAddr = getAddress(tIdx); // シードを消費しない
+             tenPullResults.push({text: '目玉(確定)', isFeatured: false, isGuaranteed: true}); 
 
         } else if (flagData.isFeatured) {
-             const node = Nodes[r - 1];
-             if (node) {
-                 node.tenPullMark = r;
-                 node.tenPullUseSeeds = 0;
-                 node.tenPullNextAddr = getAddress(r);
-             }
-             tenPullResults.push({text: '目玉', isFeatured: true});
-             resultCount++;
+             // Featured Roll (S1〜S10 の判定結果を使用)
+             node.tenPullMark = r;
+             useSeeds = 1;
+             node.tenPullUseSeeds = useSeeds; 
+             node.tenPullNextAddr = getAddress(tIdx + 1); // 1シード消費
+             tenPullResults.push({text: '目玉', isFeatured: true, isGuaranteed: false});
+             tIdx += useSeeds; // Node Indexを進める
 
         } else {
              // 通常アイテム排出の計算
-             const s_rarity_seed_idx = currentSeedIndex;
-             const s_slot_seed_idx = currentSeedIndex + 1;
+             const t_s2 = SEED[currentSeedIndex - 1];     // 0-based index correction
+             const t_s3 = SEED[currentSeedIndex + 1 - 1];
+             const t_s4 = SEED[currentSeedIndex + 2 - 1];
              
-             const s_rarity = SEED[s_rarity_seed_idx];
-             const s_slot = SEED[s_slot_seed_idx];
+             const rarity = getRarityFromRoll(t_s2 % 10000, thresholds);
+             const rarityId = rarity.id;
+             const rarityName = rarity.name;
+             const rarityRoll = t_s2 % 10000;
              
-             const rarityObj = getRarityFromRoll(s_rarity % 10000, thresholds);
-             const rarityId = rarityObj.id;
              const pool = gacha.rarityItems[rarityId] || [];
-             let itemVal = -1;
-             let itemName = '---';
-             let finalName = '---'; 
+             const poolSize = pool.length > 0 ? pool.length : 1;
+             const slot = t_s3 % poolSize;
              
-             if (pool.length > 0) {
-                 const slot = s_slot % pool.length;
-                 itemVal = pool[slot];
-                 itemName = getItemNameSafe(itemVal);
-                 finalName = itemName;
-             }
+             // ★修正: pool[slot]が0の場合に false 扱いされて -1 になるのを防ぐ
+             const itemVal = (pool[slot] !== undefined) ? pool[slot] : -1;
+             const itemName = getItemNameSafe(itemVal);
+
              const isRare = (rarityId === 1);
-             // レア被り判定の比較対象は tLastItemId を使用
              const isDupe = (itemVal !== -1 && itemVal === tLastItemId);
              const reRoll = isRare && isDupe && pool.length > 1;
-             let finalId = itemVal;
-             let useSeeds = 2; 
+             
+             finalId = itemVal;
+             let finalName = itemName;
 
-             // 1. Rarity Line
-             const n_idx_rarity = Math.floor((s_rarity_seed_idx - 1) / 3) + 1;
-             let raritySeedDisplay = '---';
-             if (n_idx_rarity <= maxNodes) {
-                 const node = Nodes[n_idx_rarity - 1];
-                 raritySeedDisplay = node.seed2; 
-             }
+             // Display lines
              rollDisplayStartIndex.set(r, currentDisplayIndex);
-             const raritySeedCalc = `${raritySeedDisplay}%10000=${raritySeedDisplay % 10000}`;
-             tenPullDisplayLines.push(`Rarity${r}:${rarityId}(${rarityObj.name})<br><span style="font-size: 80%;">${raritySeedCalc}</span>`);
+             const raritySeedCalc = `${t_s2}%10000=${rarityRoll}`;
+             tenPullDisplayLines.push(`Rarity${r}:${rarityId}(${rarityName})<br><span style="font-size: 80%;">${raritySeedCalc}</span>`);
              currentDisplayIndex++;
              
-             // 2. Item Line (Slot)
-             const n_idx_slot = Math.floor((s_slot_seed_idx - 1) / 3) + 1;
-             let slotSeedDisplay = '---';
-             const poolSize = pool.length > 0 ? pool.length : 1;
-             if (n_idx_slot <= maxNodes) {
-                 const node = Nodes[n_idx_slot - 1];
-                 slotSeedDisplay = node.seed3; 
-             }
-             
+             const itemSeedCalc = `${t_s3}%${poolSize}=${slot}`;
+
              if (reRoll) {
-                 tenPullDisplayLines.push(`Item${r}:${itemName}→レア被り<br>${slotSeedDisplay}%${poolSize}=${slotSeedDisplay % poolSize}`);
-                 currentDisplayIndex++;
-                 
                  const rePool = pool.filter(id => id !== itemVal);
                  if (rePool.length > 0) {
-                     const s_reroll_seed_idx = currentSeedIndex + 2;
-                     const s_reroll = SEED[s_reroll_seed_idx];
-                     const reSlot = s_reroll % rePool.length;
-                     finalId = rePool[reSlot];
+                     const reRollDivisor = rePool.length;
+                     const reRollSlot = t_s4 % reRollDivisor;
+                     finalId = rePool[reRollSlot];
                      const reName = getItemNameSafe(finalId);
                      finalName = `${itemName}<br>(再)${reName}`;
-                     useSeeds = 3; 
-                     const reRollDivisor = rePool.length;
-
-                     // 3. ReRoll Line
-                     const n_idx_reroll = Math.floor((s_reroll_seed_idx - 1) / 3) + 1;
-                     let rerollSeedDisplay = '---';
-                     if (n_idx_reroll <= maxNodes) {
-                         const node = Nodes[n_idx_reroll - 1];
-                         rerollSeedDisplay = node.seed4; 
-                     }
-                     const reRollSeedCalc = `${rerollSeedDisplay}%${reRollDivisor}=${rerollSeedDisplay % reRollDivisor}`;
+                     
+                     // Display lines for Item and Reroll
+                     tenPullDisplayLines.push(`Item${r}:${itemName}→レア被り<br><span style="font-size: 80%;">${itemSeedCalc}</span>`);
+                     currentDisplayIndex++;
+                     
+                     const reRollSeedCalc = `${t_s4}%${reRollDivisor}=${reRollSlot}`;
                      tenPullDisplayLines.push(`ReRollItem${r}:${reName}[${r}G]<br><span style="font-size: 80%;">${reRollSeedCalc}</span>`);
                      currentDisplayIndex++;
+                     
+                 } else {
+                     tenPullDisplayLines.push(`Item${r}:${itemName}[${r}G]<br><span style="font-size: 80%;">${itemSeedCalc}</span>`);
+                     currentDisplayIndex++;
                  }
+                 useSeeds = 3; // S2, S3, S4 を消費
              } else {
                  // 通常排出
-                 const itemSeedCalc = `${slotSeedDisplay}%${poolSize}=${slotSeedDisplay % poolSize}`;
                  tenPullDisplayLines.push(`Item${r}:${itemName}[${r}G]<br><span style="font-size: 80%;">${itemSeedCalc}</span>`);
                  currentDisplayIndex++;
+                 useSeeds = 2; // S2, S3 を消費
              }
              
-             // Node情報の更新 (Address, highlight用)
-             const node = Nodes[nodeIndex - 1];
-             if (node) {
-                 node.tenPullMark = r;
-                 node.tenPullUseSeeds = useSeeds;
-                 node.tenPullNextAddr = getAddress(nodeIndex + useSeeds);
-             }
+             // Node情報の更新
+             node.tenPullMark = r;
+             node.tenPullUseSeeds = useSeeds;
+             node.tenPullNextAddr = getAddress(tIdx + useSeeds);
              
              // tLastItemId を新しい確定アイテムで更新
              tLastItemId = finalId;
              
+             tenPullResults.push({text: finalName, isFeatured: false, isGuaranteed: false});
+             
              currentSeedIndex += useSeeds;
-             nodeIndexOffset += useSeeds;
-             tenPullResults.push({text: finalName, isFeatured: false});
-             resultCount++;
+             tIdx += useSeeds;
         }
     }
+    
+    // ★追加: 10連完了後の次の状態を取得
+    const tenPullNextNodeIndex = tIdx;
+    const tenPullNextSeedValue = SEED[tIdx - 1]; 
+    const tenPullNextAddrStr = getAddress(tIdx);
 
 
     // 5. highlightInfo 生成
@@ -378,42 +412,55 @@ function calculateUncompletedData(initialSeed, gacha, tableRows, thresholds, ini
         const addressKey = node.address;
         
         if (node.singleUseSeeds === 0 && node.singleRoll.toString().endsWith('g')) {
-             // Guaranteed Roll は Address(G) をハイライト
+             // Guaranteed Roll 
              const info = highlightInfo.get(addressKey + 'G') || {};
              info.single = true; info.singleRoll = roll; 
              highlightInfo.set(addressKey + 'G', info);
         } else if (node.isFeatured) {
-             // Featured(S1)の場合: HighlightキーはAddressのまま、s_featuredフラグを設定
+             // Featured
              const info = highlightInfo.get(addressKey) || {};
              info.single = true; info.singleRoll = roll; 
              info.s_featured = true;
              info.s_reRoll = false;
              highlightInfo.set(addressKey, info);
+        } else if (node.rarityId !== 1) { 
+             // レアリティ1以外
+             const info = highlightInfo.get(addressKey) || {};
+             info.single = true; info.singleRoll = roll;
+             info.s_featured = false;
+             info.s_reRoll = false; 
+             
+             info.s_normalName = node.rarityName; 
+             info.s_compareItemName = node.rarityName; 
+             
+             highlightInfo.set(addressKey, info);
+             
         } else {
-             // 通常ロール または レア被り再抽選 (S2, S3, S4シード消費)
-             const isRerollExplicit = node.singleIsReroll; // ★修正: singleIsReroll を使用
+             // 通常ロール (レアリティ1) または レア被り再抽選
+             const isRerollExplicit = node.singleIsReroll; 
              
              const info = highlightInfo.get(addressKey) || {};
              info.single = true; info.singleRoll = roll; 
              info.s_featured = false;
              info.s_reRoll = isRerollExplicit; 
              
-             // ★修正: デバッグのため、IDを直接 highlightInfo に保存
              info.s_currentId = node.itemId;
-             info.s_compareId = node.singleCompareItemId; // 新しく保存した比較対象IDを使用
+             info.s_compareId = node.singleCompareItemId; 
 
              if (info.s_reRoll) {
-                 // ReRollFlag=Trueの場合、表示を「アイテム名Vs比較対象アイテム名」に変更
-                 info.s_normalName = node.itemName;
+                 info.s_normalName = node.itemName; 
                  info.s_reRollName = node.reRollItemName;
              }
-             // ★修正: 比較対象アイテム名を保存
              info.s_compareItemName = node.singleCompareItemName;
 
              highlightInfo.set(addressKey, info);
         }
-        sIdx += node.singleUseSeeds || 1;
+        sIdx += node.singleUseSeeds || 3; // ノードが消費したシード数だけインデックスを進める
     }
     
-    return { Nodes, highlightInfo, maxNodes, tenPullDisplayLines, tenPullResults, singleRoutePath, numGuaranteed };
+    return { 
+        Nodes, highlightInfo, maxNodes, 
+        tenPullDisplayLines, tenPullResults, singleRoutePath, numGuaranteed,
+        tenPullNextNodeIndex, tenPullNextSeedValue, tenPullNextAddrStr
+    };
 }
