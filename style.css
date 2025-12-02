@@ -170,8 +170,9 @@ td {
 
 /* アイテム装飾 */
 .featuredItem-text {
-    color: #d9534f; /* 赤 */
+    color: #d9534f; /* 赤 #d9534f*/
     font-weight: bold;
+    text-decoration: none; /* ← 下線を非表示にします */
 }
 .legendItem-text {
     color: #0000ff; /* 青 */
