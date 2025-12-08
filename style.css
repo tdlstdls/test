@@ -1,270 +1,253 @@
+@charset "UTF-8";
+
+/* =========================================
+   基本設定
+   ========================================= */
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    line-height: 1.2;
-    padding: 5px;
-    max-width: 1200px;
-    margin: 0 auto;
-    background-color: #f4f7f9;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    padding: 20px;
     color: #333;
-    font-size: 9px;
+    background-color: #fff;
 }
-.container {
-    background: #fff;
-    padding: 5px;
-    border-radius: 12px;
-    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
-}
+
 h1 {
-    color: #004085;
-    font-size: 0.9rem;
-    border-bottom: 1px solid #e9ecef;
-    padding-bottom: 3px;
-    margin-top: 0;
-    text-align: center;
-}
-.controls {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
     margin-bottom: 10px;
-    padding: 4px;
-    background-color: #f9fbfd;
+}
+
+/* =========================================
+   コントロールエリア
+   ========================================= */
+.controls {
+    background: #f4f4f4;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.control-group {
+    margin-bottom: 10px;
+}
+
+.control-group:last-child {
+    margin-bottom: 0;
+}
+
+label {
+    margin-right: 10px;
+    font-weight: bold;
+}
+
+input[type="text"],
+input[type="number"] {
+    padding: 5px;
+    border: 1px solid #ccc;
     border-radius: 4px;
 }
-.row {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 5px;
-    align-items: center;
-}
-.control-group-left, .control-group-right {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-.input-item {
-    flex: 0 1 auto;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 3px;
-}
-.input-item-display-only {
-    flex: 0 1 auto;
-    display: flex;
-    align-items: center;
-    font-size: 0.7rem;
-    color: #555;
-    padding: 0 5px;
-}
-.input-item-seed {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 3px;
-}
-.seed-input-group {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    flex: 1 1 200px;
-}
-label {
-    font-weight: 600;
-    color: #555;
-}
-input[type="number"],
-select {
-    padding: 3px;
-    border: 1px solid #ccc;
-    border-radius: 3px;
-    font-size: 0.8rem;
-    width: 100%;
-    box-sizing: border-box;
-    transition: border-color 0.3s;
-}
-input[type="number"]:focus,
-select:focus {
-    outline: none;
-    border-color: #007bff;
-}
+
+/* =========================================
+   ボタン
+   ========================================= */
 button {
-    flex-shrink: 0;
-    width: auto;
-    padding: 5px 10px;
-    background-color: #007bff;
-    color: #fff;
+    cursor: pointer;
+    padding: 6px 12px;
+    background: #007bff;
+    color: white;
     border: none;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    font-weight: bold;
-    transition: background-color 0.3s ease, transform 0.2s ease;
-}
-.hidden-control {
-    display: none !important;
-}
-#showSeedInputLink {
-    color: #007bff;
-    text-decoration: underline;
-    cursor: pointer;
-    padding: 0 5px;
-    font-weight: bold;
-}
-#copySeedLink {
-    color: #007bff;
-    text-decoration: underline;
-    cursor: pointer;
-    white-space: nowrap;
+    border-radius: 4px;
+    margin-right: 5px;
+    font-size: 14px;
+    transition: background-color 0.2s;
 }
 
 button:hover {
-    background-color: #0056b3;
-    transform: translateY(-2px);
+    background: #0056b3;
 }
-#result-container {
-    margin-top: 15px;
+
+button.active {
+    background: #004494;
+    box-shadow: inset 0 3px 5px rgba(0,0,0,0.2);
 }
-#result-table-container {
-    overflow-x: auto;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+
+button.secondary {
+    background: #6c757d;
 }
+
+button.secondary:hover {
+    background: #5a6268;
+}
+
+button.remove-btn {
+    background: #dc3545;
+    padding: 2px 6px;
+    font-size: 0.8em;
+    margin-left: 5px;
+}
+
+button.remove-btn:hover {
+    background: #c82333;
+}
+
+button.add-gacha-btn {
+    font-size: 0.9em;
+    padding: 4px 8px;
+    background-color: #28a745;
+}
+
+button.add-gacha-btn:hover {
+    background-color: #218838;
+}
+
+/* =========================================
+   共通ユーティリティ
+   ========================================= */
+.hidden {
+    display: none !important;
+}
+
+.description-box {
+    background: #fff3cd;
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #ffeeba;
+    border-radius: 4px;
+}
+
+#result {
+    margin-bottom: 10px;
+    font-family: monospace;
+    font-weight: bold;
+}
+
+p.error {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+/* =========================================
+   シミュレーター結果テーブル (A/B Track)
+   ========================================= */
 table {
     width: 100%;
     border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 14px;
 }
+
 th, td {
-    padding: 3px;
+    border: 1px solid #ddd;
+    padding: 6px;
     text-align: center;
-    border: 1px solid #e0e0e0;
-    word-break: break-word;
-    font-size: 0.8rem;
-    min-width: 25px;
 }
-th {
-    background-color: #f0f4f7;
-    color: #444;
-    font-weight: 600;
+
+/* ヘッダー固定 */
+thead th {
+    background-color: #eee;
     position: sticky;
     top: 0;
-    z-index: 1;
+    z-index: 10;
 }
-thead th:first-child {
-    z-index: 2;
-}
-td {
-    background-color: #fff;
-}
-.row-number-header {
-    font-family: Arial, sans-serif;
-    font-weight: bold;
-    width: 25px;
-    cursor: pointer;
-}
+
 .col-no {
-    width: 25px;
-}
-
-/* アイテム装飾 */
-.featuredItem-text {
-    color: #d9534f; /* 赤 #d9534f*/
-    font-weight: bold;
-    text-decoration: none; /* ← 下線を非表示にします */
-}
-.legendItem-text {
-    color: #0000ff; /* 青 */
+    background: #e9ecef;
+    width: 40px;
     font-weight: bold;
 }
 
-#result-table-container td a {
-    color: inherit;
-    text-decoration: none;
+.gacha-column {
+    min-width: 100px;
 }
 
-/* 凡例 */
-.legend-box {
-    padding: 2px 5px;
-    border-radius: 3px;
-    margin-left: 5px;
-    cursor: pointer;
-    border: 1px solid transparent;
+.calc-column {
+    background-color: #fdfdfd;
+    font-size: 0.9em;
+    color: #555;
 }
-.legend-box:hover {
-    border: 1px solid #999;
-}
-.legend-single { background-color: #e0f7ff; }
-.legend-multi { background-color: #ffffe0; }
-.legend-common { background-color: #dfffb0; }
 
-/* ハイライト用CSS (通常) */
-.highlight-roll { background-color: #e0f7ff !important; } /* 単発 (青) */
-.highlight-roll-10pull { background-color: #ffffe0 !important; } /* 10連 (黄) */
-.highlight-roll-overlap { background-color: #dfffb0 !important; } /* 重複 (緑) */
-
-/* ハイライト用CSS (10ロールごとの鮮やかな色) */
-.highlight-roll-dark { background-color: #80d8ff !important; } /* 鮮やかな青 (Light Blue A100) */
-.highlight-roll-10pull-dark { background-color: #ffff8d !important; } /* 鮮やかな黄 (Yellow A100) */
-.highlight-roll-overlap-dark { background-color: #b9f6ca !important; } /* 鮮やかな緑 (Green A100) */
-
-/* モード別表示用 */
-/* Single Mode */
-.mode-single .highlight-roll { background-color: #e0f7ff !important; }
-.mode-single .highlight-roll-dark { background-color: #80d8ff !important; }
-.mode-single .highlight-roll-overlap { background-color: #e0f7ff !important; } 
-.mode-single .highlight-roll-overlap-dark { background-color: #80d8ff !important; }
-
-.mode-single .highlight-roll-10pull,
-.mode-single .highlight-roll-10pull-dark { background-color: #fff !important; }
-
-/* Multi Mode */
-.mode-multi .highlight-roll-10pull { background-color: #ffffe0 !important; }
-.mode-multi .highlight-roll-10pull-dark { background-color: #ffff8d !important; }
-.mode-multi .highlight-roll-overlap { background-color: #ffffe0 !important; }
-.mode-multi .highlight-roll-overlap-dark { background-color: #ffff8d !important; }
-
-.mode-multi .highlight-roll,
-.mode-multi .highlight-roll-dark { background-color: #fff !important; }
-
-#calculation-details {
-    font-family: monospace;
-    font-size: 11px;
-    line-height: 1.4;
-    margin-top: 15px;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    background: #f9f9f9;
-}
-#calculation-details h2 {
-    font-size: 1.1rem;
-    margin-top: 20px;
-    margin-bottom: 5px;
-    border-bottom: 1px solid #ccc;
-    padding-bottom: 3px;
-}
-#toggleDetailsBtn {
-    background-color: #6c757d;
-}
-#toggleDetailsBtn:hover {
-    background-color: #5a6268;
-}
-#details-controls {
+.gacha-select-header {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 10px;
-    margin-top: 10px;
+    gap: 4px;
 }
-.scroll-buttons {
-    display: flex;
-    gap: 10px;
+
+.gacha-select-header select {
+    max-width: 100%;
 }
-.scroll-buttons button {
-    font-size: 0.75rem;
-    background-color: #28a745;
+
+/* シミュレーション時のハイライト */
+.highlight {
+    border: 2px solid #ff9800 !important;
+    position: relative;
 }
-.scroll-buttons button:hover {
-    background-color: #218838;
+
+.highlight-uber {
+    border: 2px solid #e91e63 !important;
+    box-shadow: 0 0 5px #e91e63;
+    font-weight: bold;
+    color: #c2185b;
+}
+
+/* =========================================
+   スケジュール表 (新規追加分)
+   ========================================= */
+#schedule-container {
+    padding: 20px;
+    background-color: #fff;
+    border-top: 1px solid #ddd;
+}
+
+.schedule-scroll-wrapper {
+    overflow-x: auto;
+    max-height: 80vh;
+    border: 1px solid #ddd;
+}
+
+.schedule-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0; /* ラッパー内なのでマージン削除 */
+    font-size: 14px;
+}
+
+.schedule-table th,
+.schedule-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* ガチャ名は折り返し許可 */
+.schedule-table td:nth-child(3) {
+    white-space: normal;
+    text-align: left;
+    min-width: 200px;
+}
+
+.schedule-table th {
+    background-color: #343a40;
+    color: #fff;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.schedule-table tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.schedule-table tr:hover {
+    background-color: #f1f1f1;
+}
+
+/* 本日・昨日該当行のハイライト */
+.schedule-table tr.highlight-row {
+    background-color: #fff9c4 !important; /* 薄い黄色 */
+    border: 2px solid #fbc02d;
+}
+
+.schedule-table tr.highlight-row td {
+    border-top: 1px solid #fbc02d;
+    border-bottom: 1px solid #fbc02d;
+    color: #000;
 }

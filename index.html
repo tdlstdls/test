@@ -3,82 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>イベントガチャロールズ</title>
+    <title>Battle Cats Gacha Rolls</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="data:,">
 </head>
 <body>
-
-<div class="container">
-    <h1>イベントガチャロールズ</h1>
-    <div class="input-group">
+    <div class="container">
+        <h1>Battle Cats Gacha Rolls</h1>
+        
         <div class="controls">
-            <div class="row">
-                <div class="control-group-left">
-                    <div class="input-item">
-                         <a id="showSeedInputLink" href="#">SEED入力</a>
-                    </div>
-                    <div class="input-item" id="guaranteedControl">
-                        <label for="guaranteedRollsInput">next guaranteed</label>
-                        <select id="guaranteedRollsInput"></select>
-                    </div>
-                    <div class="input-item" id="legendDisplay" style="font-size: 0.7rem;">
-                        <span id="legendSingle" class="legend-box legend-single">単発ルート</span>
-                        <span id="legendMulti" class="legend-box legend-multi">10連ルート</span>
-                        <span id="legendCommon" class="legend-box legend-common">共通ルート</span>
-                    </div>
-                    <div id="lastRollDisplay" class="input-item-display-only">
-                        </div>
-                </div>
-                <div class="control-group-right">
-                    <div class="input-item">
-                        <label for="featuredCompleteCheckbox">コンプ済み</label>
-                        <input type="checkbox" id="featuredCompleteCheckbox">
-                    </div>
-                    <div class="input-item" id="stockControl">
-                        <label for="featuredStockInput">目玉残数</label>
-                        <select id="featuredStockInput"></select>
-                    </div>
-                    <a id="copySeedLink" href="#">Copy SEED</a>
-                </div>
+            <div class="control-group">
+                <label for="seed">Seed:</label>
+                <input type="number" id="seed" placeholder="Enter Seed" onchange="updateUrlParams(); resetAndGenerateTable();">
             </div>
-            <div class="row hidden-control" id="seedRow">
-                <div class="input-item-seed">
-                    <label for="seedInput">SEED</label>
-                    <div class="seed-input-group">
-                        <input type="number" id="seedInput" value="123456789">
-                        <button id="executeButton">更新</button>
-                    </div>
-                </div>
+            
+            <div class="control-group" id="sim-control-wrapper" class="hidden">
+                <label for="sim-config">Simulation Config:</label>
+                <input type="text" id="sim-config" placeholder="e.g. 10 3G 10 (Rolls)" onchange="updateUrlParams(); resetAndGenerateTable();">
+                <button onclick="clearSimConfig()">Clear Config</button>
             </div>
+
+            <div class="mode-select">
+                <label><input type="radio" name="appMode" value="display" checked onchange="onModeChange()"> 表示モード</label>
+                <label><input type="radio" name="appMode" value="simulation" onchange="onModeChange()"> シミュレーションモード</label>
+            </div>
+
+            <div style="margin-top: 5px;">
+                <button id="toggle-seed-btn" class="secondary" onclick="toggleSeedColumns()">SEEDを表示</button>
+                <button id="toggle-result-btn" class="secondary" onclick="toggleResultDisplay()">計算過程を表示</button>
+                <button id="toggle-description" class="secondary" onclick="toggleDescription()">概要を表示</button>
+                </div>
         </div>
-    </div>
-    <div id="result-container">
-        <div id="output"></div>
-        <div id="result-table-container"></div>
-        <div id="details-controls" style="display: none; margin-top: 10px; align-items: center; gap: 10px;">
-            <button id="toggleDetailsBtn">計算過程を表示</button>
-            <div class="scroll-buttons" style="display: none;">
-                <button id="scrollToSingle">単発ルートへ</button>
-                <button id="scrollToMulti">10連ルートへ</button>
-            </div>
+
+        <div id="description-content" class="description-box hidden">
+            <p><strong>Seed:</strong> ガチャの初期シード値を入力してください。<br>
+            <strong>Simulation Config:</strong> ガチャを回す手順を指定します。(例: 10 3G 5)<br>
+            数値のみは単発、数値+Gは確定ガチャ(11連など)を示します。</p>
         </div>
-        <div id="calculation-details" style="display:none;"></div>
+
+        <div id="result" class="result-box hidden"></div>
+        
+        <div id="rolls-table-container"></div>
+        
+        <div id="schedule-container" class="hidden"></div>
     </div>
-</div>
 
-<script src="master.js"></script>
-<script src="utils.js"></script>
-<script src="logic-common.js"></script>
-<script src="logic-completed.js"></script>
-<script src="logic-uncompleted-sim.js"></script>
-<script src="logic-uncompleted.js"></script>
-<script src="view-completed.js"></script>
-<script src="view-uncompleted-details.js"></script>
-<script src="view-uncompleted-table.js"></script>
-<script src="view-uncompleted.js"></script>
+    <script src="cats.js"></script>
+    <script src="gacha_series.js"></script>
 
-<script src="main.js"></script>
+    <script src="logic.js"></script>
+    <script src="simulation.js"></script>
+    <script src="schedule_logic.js"></script>
 
+    <script src="data_loader.js"></script> <script src="ui_controller.js"></script> <script src="main.js"></script>
 </body>
 </html>
