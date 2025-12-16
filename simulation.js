@@ -3,12 +3,16 @@
 function parseSimConfig(configStr) {
     if (!configStr) return [];
     const configs = [];
-    const parts = configStr.split('-');
+    // スペース、タブ、ハイフンで分割し、空の要素を除外
+    const parts = configStr.split(/[\s\-]+/).filter(Boolean);
+    
     for (let i = 0; i < parts.length; i += 2) {
         const id = parts[i];
         const rollStr = parts[i+1];
         if (id && rollStr) {
+            // 'g' が末尾にあれば確定扱い (11g, 15g, 7g など)
             const isGuaranteed = rollStr.endsWith('g');
+            // 数値部分を取り出し
             const rolls = parseInt(rollStr.replace('g', ''), 10);
             configs.push({ id, rolls, g: isGuaranteed });
         }
@@ -17,7 +21,8 @@ function parseSimConfig(configStr) {
 }
 
 function stringifySimConfig(configArr) {
-    return configArr.map(c => `${c.id}-${c.rolls}${c.g ? 'g' : ''}`).join('-');
+    // 表示用はスペース区切りで整形
+    return configArr.map(c => `${c.id} ${c.rolls}${c.g ? 'g' : ''}`).join(' ');
 }
 
 function incrementLastRoll(configStr) {
@@ -25,6 +30,7 @@ function incrementLastRoll(configStr) {
     const configs = parseSimConfig(configStr);
     if (configs.length > 0) {
         const last = configs[configs.length - 1];
+        // 確定でない場合のみ回数を増やす（確定指定の場合は単発1回を追加）
         if (!last.g) { 
             last.rolls += 1;
         } else {
@@ -37,23 +43,15 @@ function incrementLastRoll(configStr) {
 function decrementLastRollOrRemoveSegment(configStr) {
     if (!configStr) return null;
     const configs = parseSimConfig(configStr);
-    if (configs.length === 0) return null;
-
-    const last = configs.pop();
-
-    if (last.g) {
-        if (last.rolls === 11) {
-            last.rolls = 10;
-            last.g = false;
-            configs.push(last);
-        }
-    } else {
-        if (last.rolls > 1) {
+    if (configs.length > 0) {
+        const last = configs[configs.length - 1];
+        if (last.rolls > 1 && !last.g) {
             last.rolls -= 1;
-            configs.push(last);
+        } else {
+            configs.pop();
         }
     }
-    return configs.length > 0 ? stringifySimConfig(configs) : '';
+    return stringifySimConfig(configs);
 }
 
 function generateGuaranteedConfig(configStr, gachaId) {

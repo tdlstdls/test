@@ -1,3 +1,17 @@
+/**
+ * gacha_series.js
+ * Sortの区分について
+ * 100～199：ネコ祭
+ * 200～299：バスターズ
+ * 300～399：常設
+ * 400～499：季節
+ * 500～599：４セレクション
+ * 600～699：コラボ
+ * 700～799：新年その他
+ * 800～899：過去分
+ */
+
+
 const gacha_series = [
     {"series_id":0,"name":"ネコルガ族", "rare":6970, "supa":2500, "uber":500, "legend":30,"sort":300},
     {"series_id":1,"name":"ダイナマイツ", "rare":6970, "supa":2500, "uber":500, "legend":30,"sort":301},
@@ -72,5 +86,10 @@ const gacha_series = [
     {"series_id":70,"name":"億DL記念選抜", "rare":6930, "supa":2500, "uber":500, "legend":70,"sort":108},
     {"series_id":71,"name":"アウトレット", "rare":6800, "supa":2500, "uber":700, "legend":0,"sort":705},
     {"series_id":72,"name":"範馬刃牙", "rare":7000, "supa":2500, "uber":500, "legend":0,"sort":615},
-    {"series_id":73,"name":"ソニック", "rare":7000, "supa":2500, "uber":500, "legend":0,"sort":616}
+    {"series_id":73,"name":"ソニック", "rare":7000, "supa":2500, "uber":500, "legend":0,"sort":616},
+    {"series_id":75,"name":"仮2026新年超極1(956add8)", "rare":6470, "supa":2500, "uber":1000, "legend":30,"sort":101},
+    {"series_id":76,"name":"仮2026新年超極2", "rare":6470, "supa":2500, "uber":1000, "legend":30,"sort":101},
+    {"series_id":77,"name":"仮2026新年超極3", "rare":6470, "supa":2500, "uber":1000, "legend":30,"sort":101},
+    {"series_id":78,"name":"仮2026新年超極4", "rare":6470, "supa":2500, "uber":1000, "legend":30,"sort":101}
+
 ];
