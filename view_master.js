@@ -1,7 +1,4 @@
-/**
- * view_master.js
- * ガチャマスター情報のHTML生成を担当
- */
+/** @file view_master.js @description ガチャマスタ（キャラリスト）の詳細情報のHTML生成を担当 @dependency data_loader.js */
 
 function generateMasterInfoHtml() {
     if (!gachaMasterData || !gachaMasterData.gachas) return '<p>データがありません</p>';
@@ -78,7 +75,7 @@ function generateMasterInfoHtml() {
                 const isLegendRank = (r.key === 'legend');
                 const isLimited = limitedSet.has(cid) || limitedSet.has(cStr);
                 const isNew = cStr.startsWith('sim-new-');
-                const isAuto = isLegendRank || isLimited || isNew;
+                const isAuto = isAutomaticTarget(cid);
 
                 // --- 状態チェック ---
                 const isHidden = hiddenFindIds.has(cid) || (typeof cid === 'number' && hiddenFindIds.has(cid));

@@ -1,7 +1,4 @@
-/**
- * gacha_selector.js
- * ガチャ選択用プルダウンのオプション生成ロジック
- */
+/** @file gacha_selector.js @description ガチャ選択用プルダウンのオプション項目生成を担当 @dependency data_loader.js, schedule_logic.js */
 
 function getGachaSelectorOptions(selectedId) {
     const now = new Date();
@@ -68,10 +65,17 @@ function getGachaSelectorOptions(selectedId) {
             displayName += " [確定]";
         }
 
-        const baseName = `${displayName} (${item.id})`;
-        let label = item.isSpecial 
-            ? `${toShortDate(item.rawStart)}~ ${baseName}`
-            : `${toShortDate(item.rawStart)}~${toShortDate(item.rawEnd)} ${baseName}`;
+        // 変更前: const baseName = `${displayName} (${item.id})`;
+        // 変更前: let label = item.isSpecial ? ... : ...;
+
+        // 変更後: IDを日付の直後に配置して見切れを防止
+        // view_table.jsのヘッダー表示（スペースで改行）に合わせて、"日付(ID) ガチャ名" の形式にする
+        let datePart = item.isSpecial 
+            ? `${toShortDate(item.rawStart)}~`
+            : `${toShortDate(item.rawStart)}~${toShortDate(item.rawEnd)}`;
+        
+        // 日付とIDの間を詰めることで、view_table.js側で「日付(ID)」の塊として認識させ、改行後にガチャ名を表示させる
+        let label = `${datePart}(${item.id}) ${displayName}`;
         
         allOptions.push({ value: item.id, label: label });
         usedIds.add(item.id.toString());

@@ -1,2 +1,31 @@
-//combined_code.txtを生成（ターミナルに↓を入力）
+↓　combined_code.txtを生成（ターミナルに↓を入力）
 Get-ChildItem -Include *.html,*.css,*.js -Recurse | ForEach-Object { "===================="; "FILE: $($_.Name)"; "===================="; Get-Content $_ -Encoding UTF8; "" } | Out-File combined_code.txt -Encoding UTF8
+
+↓　cats.jsを除いたバージョン
+Get-ChildItem -Include *.html,*.css,*.js -Exclude cats.js -Recurse | ForEach-Object { "===================="; "FILE: $($_.Name)"; "===================="; Get-Content $_.FullName -Encoding UTF8; "" } | Out-File combined_code.txt -Encoding UTF8
+
+---
+ToDo
+SimモードからのSEED値更新
+
+
+コードの長いjsデータの分割
+Findリストのセル番地クリックでSimConfig自動生成
+シミュレーション結果のテキスト表示
+その際の超激レア等取得数
+A列ボタンの改行許可
+
+20251219-1945
+ガントチャートのバーが表示されなくなったためCtrl+Zで戻していって表示できるところまで戻した
+AIにデータの依存関係について確認して貰った範囲では問題なかった
+
+20251222
+style.css コードの改行を削除
+Sim-Txtにaddが反映されていなかったため修正
+Findで見つからない場合について10000ロール先まで検索拡張
+×ボタン不具合修正
+NO列の表示固定
+2000A・2000B以降のクリックイベント削除
+
+
+

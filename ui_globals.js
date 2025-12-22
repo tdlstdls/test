@@ -1,0 +1,23 @@
+/** @file ui_globals.js @description アプリケーション全体で共有されるグローバルな状態変数の定義 @dependency なし */
+
+// UI状態変数 (Global)
+let tableGachaIds = [];
+let currentRolls = 300;
+let showSeedColumns = false;
+let showResultDisplay = false;
+let showFindInfo = false; // Findエリア（予報＋マスター情報）の表示フラグ
+let finalSeedForUpdate = null;
+let isSimulationMode = false;
+let isTxtMode = false; // Txtボタンの状態
+let isScheduleMode = false;
+let isDescriptionMode = false; // 追加: 概要表示モードフラグ
+let activeGuaranteedIds = new Set();
+let isScheduleAnalyzed = false;
+
+// Find機能の状態管理
+let hiddenFindIds = new Set(); // 自動ターゲットのうち、非表示にするID
+let userTargetIds = new Set();
+let isFindListCleared = false;
+
+// 超激レア追加シミュレーション用
+let uberAdditionCounts = [];

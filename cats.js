@@ -835,6 +835,7 @@ const cats = [
   { "id": 834, "name": "ゴーグルにゃんこ", "rarity": 1 },
   { "id": 835, "name": "リボンにゃんこ", "rarity": 1 },
   { "id": 836, "name": "ニャンコオー", "rarity": 4 },
-  { "id": 837, "name": "2026新年超極_新規", "rarity": 4 }
+  { "id": 837, "name": "幼騎士ルーノ", "rarity": 4 }
 
 ]
+
