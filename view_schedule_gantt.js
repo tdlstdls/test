@@ -78,9 +78,9 @@ function renderGanttChart(data) {
         currentLineHtml = `<div class="gantt-current-line" style="left:${currentLineLeftPx}px;"></div>`;
     }
 
-    // ヘッダー行
-    let headerHtml = `<div class="gantt-header" style="width: ${totalWidth}px; min-width: ${totalWidth}px; display: flex; flex-wrap: nowrap; background: #f9f9f9;">
-        <div class="gantt-label-col" style="width:${labelWidth}px; min-width:${labelWidth}px; flex: none;">ガチャ名</div>`;
+    // ヘッダー行: ガチャ名セルに flex centering を適用し、高さを30pxで固定
+    let headerHtml = `<div class="gantt-header" style="width: ${totalWidth}px; min-width: ${totalWidth}px; display: flex; flex-wrap: nowrap; background: #f9f9f9; height: 30px;">
+        <div class="gantt-label-col" style="width:${labelWidth}px; min-width:${labelWidth}px; flex: none; display: flex; align-items: center; justify-content: center; height: 100%;">ガチャ名</div>`;
     for (let i = 0; i < totalDays; i++) {
         const d = new Date(minDate);
         d.setDate(d.getDate() + i);
@@ -123,7 +123,7 @@ function renderGanttChart(data) {
         else if (item.guaranteed) rowClass += ' row-guaranteed';
 
         bodyHtml += `
-            <div class="${rowClass}" style="width: ${totalWidth}px; min-width: ${totalWidth}px; display: flex; flex-wrap: nowrap;">
+            <div class="${rowClass}" style="width: ${totalWidth}px; min-width: ${totalWidth}px; display: flex; flex-wrap: nowrap; height: 30px;">
                 <div class="gantt-label-col" style="width:${labelWidth}px; min-width:${labelWidth}px; flex: none;"
                 title="${displayName} (ID:${item.id})">${displayName}</div>
                 <div class="gantt-bar-area" style="width: ${totalDays * dayWidth}px; flex: none; position: relative;">

@@ -35,55 +35,64 @@ function fmtRate(val) {
     return (parseInt(val) / 100) + "%";
 }
 
-/** ガントチャートを画像として全体保存（右側余白・見切れ対策版） */
+/** ガントチャートを画像として全体保存（バーの右端でトリミングする版） */
 function saveGanttImage() {
     const element = document.querySelector('.gantt-chart-container');
     const scrollWrapper = document.querySelector('.gantt-scroll-wrapper');
     if (!element || !scrollWrapper) return;
     
-    // インラインスタイルで厳密に計算された「コンテンツの全幅」を取得
-    const computedStyle = window.getComputedStyle(element);
-    const contentWidthPx = parseFloat(computedStyle.width);
+    // 1. 全体の要素情報を取得
+    const containerRect = element.getBoundingClientRect();
+    const bars = element.querySelectorAll('.gantt-bar');
+    
+    // 2. 最も右にあるバーの終端位置を探す
+    let maxBarRightEdge = 0;
+    bars.forEach(bar => {
+        const rect = bar.getBoundingClientRect();
+        const relativeRight = rect.right - containerRect.left;
+        if (relativeRight > maxBarRightEdge) {
+            maxBarRightEdge = relativeRight;
+        }
+    });
 
-    // 1. 元のスタイルを一時保存
+    // 3. 切り出し幅の決定 (バーの終端 + 20px の余白)
+    // バーが一つも無い場合は要素全体の幅を使用
+    const buffer = 20;
+    const finalCropWidth = maxBarRightEdge > 0 ? maxBarRightEdge + buffer : element.offsetWidth;
+
+    // 4. スタイルの保存と一時変更
     const originalOverflow = element.style.overflow;
     const originalWidth = element.style.width;
     const originalMaxWidth = element.style.maxWidth;
     const originalWrapperOverflow = scrollWrapper.style.overflow;
     const originalWrapperWidth = scrollWrapper.style.width;
 
-    // 2. sticky要素（ガチャ名ラベルやヘッダー）の固定を一時解除
-    // html2canvasはstickyを解釈できず、スクロール位置によって空白やズレが生じるため
     const stickyElements = element.querySelectorAll('.gantt-label-col, .gantt-header, .gantt-date-cell');
     const originalStickyStyles = [];
     stickyElements.forEach(el => {
         originalStickyStyles.push({ el: el, position: el.style.position });
-        el.style.position = 'static'; 
+        el.style.position = 'static'; // キャプチャ用に固定解除
     });
 
-    // 3. キャプチャ用に要素を全幅まで強制展開（スクロールバーを消し、全域をレンダリング対象にする）
+    // 全域レンダリングのために一時的に制限解除
     element.style.overflow = 'visible';
-    element.style.width = contentWidthPx + 'px';
     element.style.maxWidth = 'none';
     scrollWrapper.style.overflow = 'visible';
-    scrollWrapper.style.width = contentWidthPx + 'px';
-    
-    // 4. html2canvasで保存（キャンバス幅をコンテンツ幅に固定して余白をトリミング）
+
+    // 5. html2canvasで指定した幅（バーの少し右まで）をキャプチャ
     html2canvas(element, {
-        width: contentWidthPx,      // 画像の切り出し幅をコンテンツ幅に限定
-        windowWidth: contentWidthPx, // レンダリング基準幅をコンテンツ幅に同期
-        scale: 2,                   // 高解像度（Retina対応）
+        width: finalCropWidth,       // ここで右側をトリミング
+        windowWidth: element.scrollWidth, 
+        scale: 2,                   // 高画質
         useCORS: true,
         backgroundColor: "#ffffff",
         logging: false
     }).then(canvas => {
-        // 画像としてダウンロード
         const link = document.createElement('a');
         link.download = `gacha_schedule_${new Date().getTime()}.png`;
         link.href = canvas.toDataURL('image/png');
         link.click();
         
-        // 5. 元の表示スタイルを復元
         restoreStyles();
     }).catch(err => {
         console.error("Image capture failed:", err);
