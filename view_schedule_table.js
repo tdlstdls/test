@@ -52,6 +52,7 @@ function renderScheduleTable(tsvContent, containerId) {
                 <th style="min-width:50px;">至</th>
                 <th>ガチャ名 / 詳細</th>
                 <th>レア</th>
+            
                 <th>激レア</th>
     
                 <th>超激</th>
@@ -63,7 +64,11 @@ function renderScheduleTable(tsvContent, containerId) {
     `;
     filteredData.forEach((item, index) => {
         let seriesDisplay = item.seriesName ? item.seriesName : "シリーズ不明";
-        if (item.guaranteed) seriesDisplay += " [確定]";
+        
+        // 重複防止：seriesNameにすでに [確定] が含まれている場合は追加しない
+        if (item.guaranteed && !seriesDisplay.includes("[確定]")) {
+            seriesDisplay += " [確定]";
+        }
 
         const startStr = `${formatDateJP(item.rawStart)}<br><span style="font-size:0.85em">${formatTime(item.startTime)}</span>`;
         const endDateFormatted = formatDateJP(item.rawEnd);
@@ -81,11 +86,9 @@ function renderScheduleTable(tsvContent, containerId) {
             });
     
             if (nextSameType) {
-                // --- 転記される開始日が前日より前の場合は表示しない ---
                 if (parseInt(nextSameType.rawStart) < yesterdayInt) {
                     return;
                 }
-                // ----------------------------------------------------
 
                 endStr = `${formatDateJP(nextSameType.rawStart)}<br><span style="font-size:0.85em">${formatTime(nextSameType.startTime)}</span>`;
                 isAppliedNextStart = true;
@@ -115,8 +118,8 @@ function renderScheduleTable(tsvContent, containerId) {
                 <td>${fmtRate(item.rare)}</td>
                 <td>${fmtRate(item.supa)}</td>
                 <td style="${uberStyle}">${fmtRate(item.uber)}</td>
-                <td 
-                style="${legendStyle}">${fmtRate(item.legend)}</td>
+                
+                <td style="${legendStyle}">${fmtRate(item.legend)}</td>
                 <td style="text-align:center; font-size:1.2em;">
                     ${item.guaranteed ?
                 '<span style="color:red;">●</span>' : '-'}
@@ -126,5 +129,15 @@ function renderScheduleTable(tsvContent, containerId) {
     });
 
     html += `</tbody></table></div>`;
+
+    // 編集モードへの移行ボタンを追加
+    html += `
+        <div style="margin-top: 20px; padding-bottom: 30px; text-align: center;">
+            <button id="enter-edit-mode-btn" class="secondary" onclick="enterScheduleEditMode()" style="padding: 10px 20px; font-size: 14px;">
+                スケジュールを編集する
+            </button>
+        </div>
+    `;
+
     container.innerHTML = html;
 }
