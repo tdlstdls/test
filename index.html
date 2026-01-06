@@ -50,9 +50,9 @@
             <h3 style="margin-top:0;">【主要機能】</h3>
             <dl style="margin-bottom:10px;">
                 <dt><strong>1. Find</strong></dt>
-                <dd style="margin-bottom:5px;">2000ロール先までの「伝説枠」等を検索して表示します。リスト内のキャラ名をクリックすると、そのキャラを「Find」ターゲットとして登録/解除できます。</dd>
+                <dd style="margin-bottom:5px;">2000ロール先までの「伝説枠」等を検索して表示します。リスト内のキャラ名をタップ（クリック）すると、そのキャラを「Find」ターゲットとして登録/解除できます。</dd>
                 <dt><strong>2. Sim (シミュレーションモード)</strong></dt>
-                <dd style="margin-bottom:5px;">複数のガチャを跨いで引いた場合の結果をシミュレーションします。<br>「ルート」欄に形式に従って入力してください。また、Simモードでテーブル上のキャラ名をタップ（クリック）すると、そこまでのルートを自動計算します。自動計算では、超激確定・プラチナ・レジェンドは消費を避けるため使用しません。</dd>
+                <dd style="margin-bottom:5px;">複数のガチャを跨いで引いた場合の結果をシミュレーションします。<br>「ルート」欄に形式に従って入力してください。また、Simモードでテーブル上のキャラ名をタップ（クリック）すると、そこまでのルートを自動計算します。自動計算では、設定した上限の範囲内でプラチナ・確定Gも使用して最短経路を探します。</dd>
                 <dt><strong>3. skd (スケジュール)</strong></dt>
                 <dd>「skd」ボタンで、直近のガチャ開催スケジュールを確認できます。</dd>
             </dl>
@@ -66,11 +66,15 @@
                 <button onclick="cancelSeedInput()" class="secondary" style="padding: 1px 6px; font-size: 11px;">×</button>
             </div>
             <div class="control-group hidden" id="sim-control-wrapper" style="margin-bottom: 0; display: flex; align-items: center; flex-wrap: wrap; width: 100%;">
-                <div style="display: flex; align-items: center; width: 100%; gap: 5px;">
+                <div style="display: flex; align-items: center; width: 100%; gap: 5px; flex-wrap: wrap;">
                     <label for="sim-config" style="font-size:0.9em;">ルート:</label>
-                    <input type="text" id="sim-config" placeholder="e.g. 1006 4 942 11g" onchange="updateUrlParams(); resetAndGenerateTable();" style="flex-grow: 1;">
+                    <input type="text" id="sim-config" placeholder="e.g. 1006 4 942 11g" onchange="updateUrlParams(); resetAndGenerateTable();" style="flex-grow: 1; min-width: 150px;">
                     <button onclick="backSimConfig()" style="font-size: 11px; min-width: 40px;">Back</button>
                     <button onclick="clearSimConfig()" style="font-size: 11px;">Clear</button>
+                    <label style="font-size: 0.8em; margin-left: 5px;">MaxPlat:</label>
+                    <input type="number" id="sim-max-plat" value="0" min="0" max="5" style="width: 35px; font-size: 0.9em; padding: 1px 2px;">
+                    <label style="font-size: 0.8em; margin-left: 2px;">MaxG:</label>
+                    <input type="number" id="sim-max-guar" value="0" min="0" max="5" style="width: 35px; font-size: 0.9em; padding: 1px 2px;">
                     <button id="toggle-txt-btn" onclick="toggleTxtMode()" style="font-size: 11px;">Txt</button>
                     <button id="copy-txt-btn" onclick="copyTxtToClipboard()" class="hidden" style="margin-left: 2px; font-size: 11px;">Copy</button>
                     <span id="sim-notif-msg" style="color: #28a745; font-size: 0.8em; margin-left: 5px; font-weight: bold; display: none;"></span>

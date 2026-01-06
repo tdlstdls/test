@@ -438,6 +438,10 @@ const gacha_series = [
     {"series_id":71,"name":"アウトレット", "rare":6800, "supa":2500, "uber":700, "legend":0,"sort":705},
     {"series_id":72,"name":"範馬刃牙", "rare":7000, "supa":2500, "uber":500, "legend":0,"sort":615},
     {"series_id":73,"name":"ソニック", "rare":7000, "supa":2500, "uber":500, "legend":0,"sort":616},
+    {"series_id":75,"name":"仮2026新年超極1(956add8)", "rare":6470, "supa":2500, "uber":1000, "legend":30,"sort":101},
+    {"series_id":76,"name":"仮2026新年超極2", "rare":6470, "supa":2500, "uber":1000, "legend":30,"sort":101},
+    {"series_id":77,"name":"仮2026新年超極3", "rare":6470, "supa":2500, "uber":1000, "legend":30,"sort":101},
+    {"series_id":78,"name":"仮2026新年超極4", "rare":6470, "supa":2500, "uber":1000, "legend":30,"sort":101}
 
 ];
 
@@ -2303,14 +2307,14 @@ function prepareScheduleInfo() {
                     if (item.guaranteed) {
                         const gId = parseInt(item.id);
                         activeGuaranteedIds.add(gId);
-                        if (gachaMasterData && gachaMasterData.gachas && gachaMasterData.gachas[gId]) {
+                        /* if (gachaMasterData && gachaMasterData.gachas && gachaMasterData.gachas[gId]) {
          
                             const currentName = gachaMasterData.gachas[gId].name;
                             if (!currentName.includes('[確定]')) {
                                  gachaMasterData.gachas[gId].name += " [確定]";
-            
                             }
                         }
+                        */
                     }
                 }
             });
@@ -2401,7 +2405,7 @@ function enterScheduleEditMode() {
 
 // スケジュールから開催中・予定のガチャを一括追加
 function addGachasFromSchedule() {
-    if (!loadedTsvContent || typeof parseGachaTSV === 'function') {
+    if (!loadedTsvContent || typeof parseGachaTSV !== 'function') {
         alert("スケジュールデータがありません。");
         return;
     }
@@ -2477,6 +2481,7 @@ function addGachasFromSchedule() {
     if (typeof updateMasterInfoView === 'function') updateMasterInfoView();
     if (typeof updateUrlParams === 'function') updateUrlParams();
 }
+
 
 ====================
 FILE: ui_seed_logic.js
@@ -3544,7 +3549,11 @@ function generateNameHeaderHTML() {
             displayHTML = `${selectedLabel}${addInfoStr}`;
         }
 
-        const cls = isGuaranteed ? '' : 'class="gacha-column"';
+        // 確定列の場合はクラスを外す（下のセルが幅を規定するため）か、
+        // または幅制限のない別のクラスを検討します。
+        // 今回は「下のセル（td）が幅を持つ」ため、ヘッダーは colspan のみを活かす形が安全です。
+        const cls = isGuaranteed ? '' : 'class="gacha-column"'; 
+
         // 名前行なので ControlArea は出力しない
         html += `<th ${cls} ${isGuaranteed?'colspan="2"':''} style="vertical-align: bottom; padding-bottom: 2px;">
                     <div style="text-align: center; line-height: 1.25;">${displayHTML}</div>
@@ -3928,7 +3937,6 @@ function renderGanttChart(data) {
     
     let activeData = filteredData.filter(item => parseInt(item.rawEnd) >= yesterdayInt);
     const now = new Date();
-
     // フィルタ: 終了分の非表示設定
     if (hideEndedSchedules) {
         activeData = activeData.filter(item => {
@@ -3959,14 +3967,20 @@ function renderGanttChart(data) {
         const eDt = parseDateTime(item.rawEnd, item.endTime);
         if (eDt > maxEndDateTime) maxEndDateTime = eDt;
 
+        // 表示名の計算（重複チェック付き）
         let displayName = item.seriesName;
-        if (item.guaranteed) displayName += " [確定]";
-        const textW = calcTextWidth(displayName);
-        if (textW > maxLabelTextWidth) maxLabelTextWidth = textW;
+        if (item.guaranteed && !displayName.includes("[確定]")) {
+            displayName += " [確定]";
+        }
+        
+        if (typeof calcTextWidth === 'function') {
+            const textW = calcTextWidth(displayName);
+            if (textW > maxLabelTextWidth) maxLabelTextWidth = textW;
+        }
     });
 
     let labelWidth = Math.max(160, maxLabelTextWidth + 20);
-    if (labelWidth > 320) labelWidth = 320; 
+    if (labelWidth > 1000) labelWidth = 1000; 
 
     // チャートの開始日決定
     let minDate = parseDateStr(String(minDateInt));
@@ -3984,8 +3998,6 @@ function renderGanttChart(data) {
     if (totalDays <= 0) return '';
     const dayWidth = 50; 
     const msPerDay = 1000 * 60 * 60 * 24;
-    
-    // 合計幅を厳密に計算
     const totalWidth = labelWidth + (totalDays * dayWidth);
     
     let currentLineHtml = '';
@@ -3995,7 +4007,7 @@ function renderGanttChart(data) {
         currentLineHtml = `<div class="gantt-current-line" style="left:${currentLineLeftPx}px;"></div>`;
     }
 
-    // ヘッダー行: ガチャ名セルに flex centering を適用し、高さを30pxで固定
+    // ヘッダー行
     let headerHtml = `<div class="gantt-header" style="width: ${totalWidth}px; min-width: ${totalWidth}px; display: flex; flex-wrap: nowrap; background: #f9f9f9; height: 30px;">
         <div class="gantt-label-col" style="width:${labelWidth}px; min-width:${labelWidth}px; flex: none; display: flex; align-items: center; justify-content: center; height: 100%;">ガチャ名</div>`;
     for (let i = 0; i < totalDays; i++) {
@@ -4025,14 +4037,19 @@ function renderGanttChart(data) {
         if (offsetPx + widthPx > maxPx) widthPx = maxPx - offsetPx; 
         if (widthPx <= 0) return;
 
+        // 重複チェック付きの表示名
         let displayName = item.seriesName;
-        if (item.guaranteed) displayName += " [確定]";
+        if (item.guaranteed && !displayName.includes("[確定]")) {
+            displayName += " [確定]";
+        }
 
+        // バーの色分けロジック（従前の仕様  に準拠）
         let barClass = 'gantt-bar';
         if (displayName.includes("極選抜")) barClass += ' g-kyoku';
         else if (displayName.includes("超選抜")) barClass += ' g-cho';
         else if (displayName.includes("ネコ祭")) barClass += ' g-fest';
         else if (displayName.includes("コラボ")) barClass += ' g-collab';
+        // 通常の確定ガチャなどはデフォルトの緑(gantt-bar)のまま表示
 
         const durationDays = Math.max(1, Math.round(durationMs / msPerDay));
         let rowClass = 'gantt-row';
@@ -4082,6 +4099,7 @@ function generateGridLines(days, width, startDate) {
         html += `<div class="${cls}" style="${style}"></div>`;
     }
     return html;
+
 }
 
 ====================
@@ -4293,7 +4311,7 @@ function saveGanttImage() {
 
     // 3. 切り出し幅の決定 (バーの終端 + 20px の余白)
     // バーが一つも無い場合は要素全体の幅を使用
-    const buffer = 20;
+    const buffer = 40;
     const finalCropWidth = maxBarRightEdge > 0 ? maxBarRightEdge + buffer : element.offsetWidth;
 
     // 4. スタイルの保存と一時変更
@@ -4346,6 +4364,7 @@ function saveGanttImage() {
             item.el.style.position = item.position;
         });
     }
+
 }
 
 ====================
@@ -4550,7 +4569,8 @@ function renderTableRowSide(rowIndex, seedIndex, columnConfigs, tableData, seeds
                 altHtml = `<span style="font-size:0.9em; color:#666;">${altAddr}</span><span class="char-link" style="cursor:pointer;" ${altClickAction}>${altCharName}</span><br>`;
             }
             gContent = altHtml + mainHtml;
-            sideHtml += `<td style="${cellStyle}">${gContent}</td>`;
+            // クラス class="gacha-cell gacha-column" を追加
+            sideHtml += `<td class="gacha-cell gacha-column" style="${cellStyle}">${gContent}</td>`;
         }
     });
     return sideHtml;
