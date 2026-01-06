@@ -35,17 +35,42 @@ function fmtRate(val) {
     return (parseInt(val) / 100) + "%";
 }
 
-/** ガントチャートを画像として全体保存（バーの右端でトリミングする版） */
+/** ガントチャートを画像として全体保存（デスクトップレイアウトを強制適用する版） */
 function saveGanttImage() {
     const element = document.querySelector('.gantt-chart-container');
     const scrollWrapper = document.querySelector('.gantt-scroll-wrapper');
     if (!element || !scrollWrapper) return;
+
+    // 1. デスクトップ表示用のスタイルを一時的に注入
+    const styleOverride = document.createElement('style');
+    styleOverride.id = 'gantt-save-override';
+    styleOverride.innerHTML = `
+        .gantt-label-col { 
+            width: 160px !important; 
+            min-width: 160px !important; 
+            font-size: 12px !important; 
+            line-height: 30px !important; 
+            padding: 0 5px !important;
+        }
+        .gantt-row { height: 30px !important; }
+        .gantt-bar { 
+            height: 20px !important; 
+            top: 5px !important; 
+            font-size: 10px !important; 
+        }
+        .gantt-date-cell { 
+            width: 50px !important;
+            font-size: 10px !important; 
+        }
+        .gantt-header { height: 30px !important; }
+    `;
+    document.head.appendChild(styleOverride);
     
-    // 1. 全体の要素情報を取得
+    // 2. 全体の要素情報を取得
     const containerRect = element.getBoundingClientRect();
     const bars = element.querySelectorAll('.gantt-bar');
     
-    // 2. 最も右にあるバーの終端位置を探す
+    // 3. 最も右にあるバーの終端位置を探す
     let maxBarRightEdge = 0;
     bars.forEach(bar => {
         const rect = bar.getBoundingClientRect();
@@ -55,12 +80,11 @@ function saveGanttImage() {
         }
     });
 
-    // 3. 切り出し幅の決定 (バーの終端 + 20px の余白)
-    // バーが一つも無い場合は要素全体の幅を使用
+    // 4. 切り出し幅の決定 (バーの終端 + 余白)
     const buffer = 40;
     const finalCropWidth = maxBarRightEdge > 0 ? maxBarRightEdge + buffer : element.offsetWidth;
 
-    // 4. スタイルの保存と一時変更
+    // 5. スタイルの保存と一時変更
     const originalOverflow = element.style.overflow;
     const originalWidth = element.style.width;
     const originalMaxWidth = element.style.maxWidth;
@@ -79,11 +103,11 @@ function saveGanttImage() {
     element.style.maxWidth = 'none';
     scrollWrapper.style.overflow = 'visible';
 
-    // 5. html2canvasで指定した幅（バーの少し右まで）をキャプチャ
+    // 6. html2canvasで指定した幅（デスクトップ基準）をキャプチャ
     html2canvas(element, {
-        width: finalCropWidth,       // ここで右側をトリミング
-        windowWidth: element.scrollWidth, 
-        scale: 2,                   // 高画質
+        width: finalCropWidth,
+        windowWidth: 1200, // デスクトップ相当のウィンドウ幅として計算
+        scale: 2,          // 高画質
         useCORS: true,
         backgroundColor: "#ffffff",
         logging: false
@@ -101,6 +125,10 @@ function saveGanttImage() {
     });
 
     function restoreStyles() {
+        // 注入したスタイルを削除
+        const override = document.getElementById('gantt-save-override');
+        if (override) override.remove();
+
         element.style.overflow = originalOverflow;
         element.style.width = originalWidth;
         element.style.maxWidth = originalMaxWidth;
@@ -110,5 +138,4 @@ function saveGanttImage() {
             item.el.style.position = item.position;
         });
     }
-
 }
