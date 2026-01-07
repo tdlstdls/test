@@ -1,4 +1,4 @@
-/** @file view_table.js @description ガチャ結果テーブルの描画と全UI機能の制御 */
+/** @file view_table.js @description ガチャ結果テーブルの描画と全UI・操作機能の制御 */
 
 const COLOR_ROUTE_HIGHLIGHT = '#aaddff';
 const COLOR_ROUTE_UBER = '#66b2ff';
@@ -19,20 +19,17 @@ function generateRollsTable() {
         const numRolls = currentRolls;
         const seeds = [];
         const rngForSeeds = new Xorshift32(initialSeed);
-        // シミュレーションに必要な十分なシードを生成
         for (let i = 0; i < numRolls * 25 + 200; i++) seeds.push(rngForSeeds.next());
         
         const columnConfigs = prepareColumnConfigs();
         const tableData = executeTableSimulation(numRolls, columnConfigs, seeds);
         
-        // ハイライト情報の取得
         const { highlightMap, guarHighlightMap, lastSeedValue } = preparePathHighlightMaps(initialSeed, seeds, numRolls);
         finalSeedForUpdate = lastSeedValue;
 
         const container = document.getElementById('rolls-table-container');
         if (!container) return;
 
-        // 上部予測エリア
         let findAreaHtml = '';
         if (typeof generateFastForecast === 'function') findAreaHtml += generateFastForecast(initialSeed, columnConfigs);
         if (typeof generateMasterInfoHtml === 'function' && showFindInfo && isMasterInfoVisible) {
@@ -42,17 +39,15 @@ function generateRollsTable() {
             findAreaHtml += `</div>`;
         }
 
-        // テーブル本体の構築
         const tableHtml = buildTableDOM(numRolls, columnConfigs, tableData, seeds, highlightMap, guarHighlightMap);
         
         let simNoticeHtml = '';
         if (isSimulationMode) {
             simNoticeHtml = `<div id="sim-auto-calc-notice" style="font-size: 0.75em; color: #666; padding: 5px 10px; background: #fff;">
-                ※キャラ名をタップでルート計算。11Gを<b>長押し(またはCtrl+クリック)</b>で詳細計算ログを表示します。
+                ※キャラ名をタップでルート計算。11G列を<b>長押し(またはCtrl+クリック)</b>で詳細ログを表示します。
             </div>`;
         }
 
-        // Sim/Txtモード表示
         if (isTxtMode && isSimulationMode) {
             const txtViewHtml = generateTxtRouteView(seeds, initialSeed);
             if (txtViewHtml.includes("ルートが入力されていません")) {
@@ -64,7 +59,6 @@ function generateRollsTable() {
             container.innerHTML = findAreaHtml + simNoticeHtml + tableHtml;
         }
 
-        // デバッグモーダルの初期化
         initDebugModal();
 
         const resultDiv = document.getElementById('result');
@@ -80,14 +74,13 @@ function generateRollsTable() {
 
 /** テーブルDOM構築 */
 function buildTableDOM(numRolls, columnConfigs, tableData, seeds, highlightMap, guarHighlightMap) {
-    // ボタンエリアのHTML
     const buttonHtml = `
-        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 3px; font-weight: normal;">
-            <span style="font-weight: bold; font-size: 11px;">A</span>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 3px; font-weight: normal; white-space: normal;">
+            <span style="font-weight: bold; margin-right: 1px; font-size: 11px;">A</span>
             <button class="add-gacha-btn" onclick="addGachaColumn()" style="font-size: 11px; padding: 1px 4px;">＋列を追加</button>
             <button class="add-gacha-btn" style="background-color: #17a2b8; font-size: 11px; padding: 1px 4px;" onclick="addGachasFromSchedule()">skdで追加</button>
             <span id="add-id-trigger" style="cursor:pointer; text-decoration:underline; color:#007bff; font-size: 11px; font-weight:bold;" onclick="showIdInput()">IDで追加</span>
-            <button class="remove-btn" onclick="resetToFirstGacha()" title="解除" style="font-size: 11px; padding: 1px 5px;">×</button>
+            <button class="remove-btn" onclick="resetToFirstGacha()" title="解除" style="font-size: 11px; padding: 1px 5px; margin-left: 2px;">×</button>
         </div>`;
 
     let totalGachaCols = 0;
@@ -138,12 +131,11 @@ function buildTableDOM(numRolls, columnConfigs, tableData, seeds, highlightMap, 
     return html;
 }
 
-/** 行レンダリング（A/B側個別） */
+/** 行レンダリング */
 function renderTableRowSide(rowIndex, seedIndex, columnConfigs, tableData, seeds, highlightMap, guarHighlightMap, isLeftSide) {
     let styleNo = '';
     let bgColor = '#f8f9fa';
 
-    // 特殊なシードパターンの着色（黄色・オレンジ）
     if (RowAnalysis.isSimpleYellow(seedIndex, seeds) || RowAnalysis.isConsecutiveYellow(seedIndex, seeds)) {
         styleNo = 'background-color: #ffeb3b;'; bgColor = '#ffeb3b';
     } else if (RowAnalysis.isSimpleOrange(seedIndex, seeds) || RowAnalysis.isConsecutiveOrange(seedIndex, seeds)) {
@@ -153,7 +145,7 @@ function renderTableRowSide(rowIndex, seedIndex, columnConfigs, tableData, seeds
     let stickyStyle = isLeftSide ? `position: sticky; left: 0; z-index: 5; border-right: 1px solid #ddd; background-color: ${bgColor};` : '';
     let sideHtml = `<td class="col-no" style="${stickyStyle}${styleNo}">${rowIndex + 1}</td>`;
     
-    // 詳細計算セル（SEED, rarity, slot, ReRoll, Guar等）
+    // logic.jsの結果を表示する詳細セル
     sideHtml += generateDetailedCalcCells(seedIndex, seeds, tableData);
     
     tableGachaIds.forEach((idWithSuffix, colIndex) => {
@@ -162,19 +154,16 @@ function renderTableRowSide(rowIndex, seedIndex, columnConfigs, tableData, seeds
         if (!gachaMasterData.gachas[id]) return;
 
         const data = tableData[seedIndex][colIndex];
-        const roll = data.roll;
 
-        // 通常キャラセルの描画
+        // 通常キャラセルの表示（レアリティ別着色含む）
         let cellHtml = generateCell(seedIndex, id, colIndex, tableData, seeds, highlightMap, isSimulationMode);
-        
-        // シミュレーション時の色上書き
         if (isSimulationMode) {
             cellHtml = cellHtml.replace(/background-color:\s*#98FB98;/gi, `background-color: ${COLOR_ROUTE_HIGHLIGHT};`);
             cellHtml = cellHtml.replace(/background-color:\s*#32CD32;/gi, `background-color: ${COLOR_ROUTE_UBER};`);
         }
         sideHtml += cellHtml;
 
-        // 11G（確定枠）の描画
+        // 11G（独立確定計算）の表示
         if (suffix) {
             let gContent = '---';
             let cellStyle = 'white-space: normal; width: auto; word-break: break-all; vertical-align: middle; border: 1px solid #ddd;';
@@ -188,17 +177,14 @@ function renderTableRowSide(rowIndex, seedIndex, columnConfigs, tableData, seeds
             const g = data.guaranteed;
             if (g && g.name !== "データ不足") {
                 const addr = formatAddress(g.nextRollStartSeedIndex);
-                // 検算エラー時の警告
                 const verifiedStyle = g.isVerified ? "" : "border-left: 3px solid #ff4444;";
-                
-                let gType = (suffix === 'g') ? '11g' : (suffix === 'f' ? '15g' : '7g');
+                const gType = (suffix === 'g') ? '11g' : (suffix === 'f' ? '15g' : '7g');
                 const escapedName = g.name.replace(/'/g, "\\'");
 
                 let gClickAction = isSimulationMode ?
                     `onclick="if(!event.ctrlKey) onGachaCellClick(${seedIndex}, '${id}', '${escapedName}', '${gType}')"` :
                     (g.nextRollStartSeedIndex >= 0 ? `onclick="if(!event.ctrlKey) updateSeedAndRefresh(${seeds[g.nextRollStartSeedIndex - 1]})"` : "");
 
-                // デバッグ用トリガー属性
                 const debugAttrs = `onpointerdown="window.start11GTimer(${seedIndex}, ${colIndex})" onpointerup="window.clear11GTimer()" onpointerleave="window.clear11GTimer()" onclick="if(event.ctrlKey) { showDebugLog(${seedIndex}, ${colIndex}); event.preventDefault(); }"`;
 
                 gContent = `
@@ -213,31 +199,73 @@ function renderTableRowSide(rowIndex, seedIndex, columnConfigs, tableData, seeds
     return sideHtml;
 }
 
-/** 各種ヘッダー生成関数群 */
+/** ガチャ選択プルダウンの生成 */
 function generateNameHeaderHTML() {
     let h = "";
-    tableGachaIds.forEach(idWithSuffix => {
-        const id = idWithSuffix.replace(/[gfs]$/, '');
-        const config = gachaMasterData.gachas[id];
-        const name = config ? config.name : "不明";
-        h += `<th class="gacha-column-header" style="min-width:100px;">${name}</th>`;
-        if (/[gfs]$/.test(idWithSuffix)) {
-            h += `<th style="background:#d0e8ff; min-width:80px;">11G</th>`;
+    tableGachaIds.forEach((idWithSuffix, idx) => {
+        const currentBaseId = idWithSuffix.replace(/[gfs]$/, '');
+        const isGuar = /[gfs]$/.test(idWithSuffix);
+
+        let selectHtml = `<select onchange="changeGachaSeries(${idx}, this.value)" style="width: 100%; max-width: 120px; font-size: 11px; padding: 2px;">`;
+        
+        // マスタデータから全ガチャをプルダウンに展開
+        const sortedGachas = Object.values(gachaMasterData.gachas).sort((a, b) => b.id - a.id);
+        sortedGachas.forEach(g => {
+            const selected = (g.id == currentBaseId) ? "selected" : "";
+            selectHtml += `<option value="${g.id}" ${selected}>${g.name}</option>`;
+        });
+        selectHtml += `</select>`;
+
+        h += `<th class="gacha-column-header" style="min-width:130px; padding: 4px;">${selectHtml}</th>`;
+        if (isGuar) {
+            h += `<th style="background:#d0e8ff; min-width:80px; font-size: 11px; vertical-align: middle;">11G</th>`;
         }
     });
     return h;
 }
 
+/** 操作ボタン（Gボタン, 削除ボタン）の生成 */
 function generateControlHeaderHTML(isA) {
     let h = "";
-    tableGachaIds.forEach((id, idx) => {
-        h += `<th class="gacha-column"><button class="remove-btn" onclick="removeGachaColumn(${idx})">×</button></th>`;
-        if (/[gfs]$/.test(id)) {
+    tableGachaIds.forEach((idWithSuffix, idx) => {
+        const isGuar = /[gfs]$/.test(idWithSuffix);
+        const gBtnColor = isGuar ? "#007bff" : "#6c757d";
+        
+        // Gボタン：確定設定のトグル
+        const gBtn = `<button onclick="toggleGuaranteed(${idx})" style="background:${gBtnColor}; color:white; border:none; padding:2px 6px; font-size:10px; border-radius:3px; cursor:pointer;" title="確定11連切替">G</button>`;
+        // 削除ボタン
+        const delBtn = `<button class="remove-btn" onclick="removeGachaColumn(${idx})" style="font-size:10px; padding:1px 5px;">×</button>`;
+
+        h += `<th class="gacha-column" style="text-align:center; padding: 2px;">
+                <div style="display:flex; gap:4px; justify-content:center; align-items:center;">${gBtn}${delBtn}</div>
+              </th>`;
+        if (isGuar) {
             h += `<th style="background:#d0e8ff;"></th>`;
         }
     });
     return h;
 }
+
+/** 確定設定をトグルする関数 */
+window.toggleGuaranteed = function(colIndex) {
+    let id = tableGachaIds[colIndex];
+    if (id.endsWith('g')) {
+        tableGachaIds[colIndex] = id.slice(0, -1);
+    } else if (id.endsWith('f') || id.endsWith('s')) {
+        tableGachaIds[colIndex] = id.slice(0, -1) + 'g';
+    } else {
+        tableGachaIds[colIndex] = id + 'g';
+    }
+    generateRollsTable();
+};
+
+/** ガチャシリーズを変更する関数 */
+window.changeGachaSeries = function(colIndex, newBaseId) {
+    let oldId = tableGachaIds[colIndex];
+    let suffix = oldId.match(/[gfs]$/)?.[0] || '';
+    tableGachaIds[colIndex] = newBaseId + suffix;
+    generateRollsTable();
+};
 
 /** アドレス形式変換 */
 function formatAddress(index) {
@@ -256,7 +284,7 @@ function initDebugModal() {
         modal.innerHTML = `
             <div style="background:#fff; margin:5% auto; padding:20px; width:95%; max-width:1000px; border-radius:8px; font-family:monospace; position:relative;">
                 <span onclick="this.parentElement.parentElement.style.display='none'" style="position:absolute; right:15px; top:5px; cursor:pointer; font-size:30px;">&times;</span>
-                <h3>11G Calculation Debug Log</h3>
+                <h3 style="margin-top:0;">11G Calculation Debug Log</h3>
                 <div id="debug-content" style="overflow-x:auto;"></div>
             </div>`;
         document.body.appendChild(modal);
@@ -280,7 +308,7 @@ window.showDebugLog = function(seedIndex, colIndex) {
     if (!gData || !gData.debugLog) return;
 
     let logHtml = `<table border="1" style="width:100%; border-collapse:collapse; background:#fff; font-size:11px;">
-        <tr style="background:#eee;">
+        <tr style="background:#eee; position:sticky; top:0;">
             <th>Step</th><th>SEED</th><th>演算 (Seed % Pool)</th><th>排出キャラ</th><th>判定詳細</th>
         </tr>`;
 
@@ -296,7 +324,7 @@ window.showDebugLog = function(seedIndex, colIndex) {
     document.getElementById('debug-modal').style.display = 'block';
 };
 
-/** グローバル変数の更新（シミュレーション結果の保持） */
+/** シミュレーション結果のグローバル保持 */
 let currentTableData = null;
 const originalExecute = executeTableSimulation;
 executeTableSimulation = function(n, c, s) {
