@@ -19,11 +19,11 @@ function generateRollsTable() {
         const seeds = [];
         const rngForSeeds = new Xorshift32(initialSeed);
         for (let i = 0; i < numRolls * 15 + 100; i++) seeds.push(rngForSeeds.next());
-
+        
         const columnConfigs = prepareColumnConfigs();
         const tableData = executeTableSimulation(numRolls, columnConfigs, seeds);
-
-        // ハイライト判定とシミュレーション後の最終シード取得
+        
+        // 3. ハイライト判定とシミュレーション後の最終シード取得
         const { highlightMap, guarHighlightMap, lastSeedValue } = preparePathHighlightMaps(initialSeed, seeds, numRolls);
         finalSeedForUpdate = lastSeedValue;
 
@@ -41,6 +41,7 @@ function generateRollsTable() {
 
         // テーブル本体のHTMLを先に生成
         const tableHtml = buildTableDOM(numRolls, columnConfigs, tableData, seeds, highlightMap, guarHighlightMap);
+        
         let simNoticeHtml = '';
         if (isSimulationMode) {
             simNoticeHtml = `<div id="sim-auto-calc-notice" style="font-size: 0.75em; color: #666; padding: 5px 10px; background: #fff;">
@@ -48,14 +49,20 @@ function generateRollsTable() {
             </div>`;
         }
 
+        // --- 修正箇所: Sim/Txtモード時の表示ロジック ---
         if (isTxtMode && isSimulationMode) {
             const txtViewHtml = generateTxtRouteView(seeds, initialSeed);
+            
+            // ルート未入力時のエラーメッセージが含まれているかチェック
             if (txtViewHtml.includes("ルートが入力されていません")) {
+                // ルートがない場合は、メッセージを表示せず通常のテーブルのみを表示
                 container.innerHTML = findAreaHtml + simNoticeHtml + tableHtml;
             } else {
+                // ルートがある場合は、テキストビューを上、テーブルを下にして両方表示（利便性のため）
                 container.innerHTML = findAreaHtml + txtViewHtml + simNoticeHtml + tableHtml;
             }
         } else {
+            // 通常テーブル表示モード
             container.innerHTML = findAreaHtml + simNoticeHtml + tableHtml;
         }
 
@@ -77,10 +84,10 @@ function buildTableDOM(numRolls, columnConfigs, tableData, seeds, highlightMap, 
             <span style="font-weight: bold; margin-right: 1px; font-size: 11px;">A</span>
             <button class="add-gacha-btn" onclick="addGachaColumn()" style="font-size: 11px; padding: 1px 4px;">＋列を追加</button>
             <button class="add-gacha-btn" style="background-color: #17a2b8; font-size: 11px; padding: 1px 4px;" onclick="addGachasFromSchedule()">skdで追加</button>
-            <span id="add-id-trigger" style="cursor:pointer; text-decoration:underline; color:#007bff; font-size: 11px; font-weight:bold;" onclick="showIdInput()">IDで追加</span>
+            <span id="add-id-trigger" style="cursor:pointer; text-decoration:underline; color:#007bff; font-size: 11px; font-weight:bold;"
+onclick="showIdInput()">IDで追加</span>
             <button class="remove-btn" onclick="resetToFirstGacha()" title="一番左の列以外を解除" style="font-size: 11px; padding: 1px 5px; margin-left: 2px;">×</button>
         </div>`;
-    
     let totalGachaCols = 0;
     tableGachaIds.forEach(idWithSuffix => {
         let id = idWithSuffix.replace(/[gfs]$/, '');
@@ -164,23 +171,14 @@ function renderTableRowSide(rowIndex, seedIndex, columnConfigs, tableData, seeds
         sideHtml += cellHtml;
 
         if (isG) {
+            let gContent = '---';
             let cellStyle = 'white-space: normal; width: auto; word-break: break-all; vertical-align: middle; ';
             if (isSimulationMode && guarHighlightMap.get(seedIndex) === id) cellStyle += `background-color: ${COLOR_ROUTE_UBER};`;
             
             const config = columnConfigs[colIndex];
             const normalRolls = config._guaranteedNormalRolls || 10;
-            let lastDraw = null;
-            if (rowIndex > 0) {
-                const prevRoll = tableData[seedIndex - 2]?.[colIndex]?.roll;
-                if (prevRoll) {
-                    lastDraw = { 
-                        rarity: prevRoll.rarity, 
-                        charId: prevRoll.charId,
-                        originalCharId: prevRoll.originalChar ? prevRoll.originalChar.id : prevRoll.charId,
-                        fromRerollRoute: prevRoll.isRerolled 
-                    };
-                }
-            }
+            let lastDraw = (rowIndex > 0 && tableData[seedIndex - 2]?.[colIndex]?.roll) ?
+                { rarity: tableData[seedIndex - 2][colIndex].roll.rarity, charId: tableData[seedIndex - 2][colIndex].roll.charId } : null;
             
             const gRes = calculateGuaranteedLookahead(seedIndex, config, seeds, lastDraw, normalRolls);
             const addr = formatAddress(gRes.nextRollStartSeedIndex);
@@ -191,12 +189,8 @@ function renderTableRowSide(rowIndex, seedIndex, columnConfigs, tableData, seeds
             let gClickAction = isSimulationMode ?
                 `onclick="onGachaCellClick(${seedIndex}, '${id}', '${escapedName}', '${gType}')"` :
                 (gRes.nextRollStartSeedIndex > 0 ? `onclick="updateSeedAndRefresh(${seeds[gRes.nextRollStartSeedIndex - 1]})"` : "");
-            
-            // メインの結果表示
-            let mainHtml = `<div style="padding: 2px 0;"><span style="font-size:0.9em; color:#666;">${addr}</span><span class="char-link" style="cursor:pointer;" ${gClickAction}>${charName}</span></div>`;
-            
-            // Alternative（リロールなしの別ルート）がある場合のみ2段にする
-            let gContent = '';
+            let mainHtml = `<span style="font-size:0.9em; color:#666;">${addr}</span><span class="char-link" style="cursor:pointer;" ${gClickAction}>${charName}</span>`;
+            let altHtml = '';
             if (gRes.alternative) {
                 const altAddr = formatAddress(gRes.alternative.nextRollStartSeedIndex);
                 let altCharName = gRes.alternative.name;
@@ -204,13 +198,9 @@ function renderTableRowSide(rowIndex, seedIndex, columnConfigs, tableData, seeds
                 let altClickAction = isSimulationMode ?
                     `onclick="onGachaCellClick(${seedIndex}, '${id}', '${escAlt}', '${gType}')"` :
                     (gRes.alternative.nextRollStartSeedIndex > 0 ? `onclick="updateSeedAndRefresh(${seeds[gRes.alternative.nextRollStartSeedIndex - 1]})"` : "");
-                
-                let altHtml = `<div style="padding: 2px 0; border-bottom: 1px dashed #ccc; opacity: 0.7;"><span style="font-size:0.85em; color:#888;">${altAddr}</span><span class="char-link" style="cursor:pointer;" ${altClickAction}>${altCharName}</span></div>`;
-                gContent = altHtml + mainHtml;
-            } else {
-                gContent = mainHtml;
+                altHtml = `<span style="font-size:0.9em; color:#666;">${altAddr}</span><span class="char-link" style="cursor:pointer;" ${altClickAction}>${altCharName}</span><br>`;
             }
-            
+            gContent = altHtml + mainHtml;
             sideHtml += `<td class="gacha-cell gacha-column" style="${cellStyle}">${gContent}</td>`;
         }
     });
@@ -280,9 +270,7 @@ function generateTxtRouteView(seeds, initialSeed) {
             else if (limitedSet.has(charObj.id)) addStat(stats.limiteds, charObj.name);
             else if (rr.rarity === 'uber') addStat(stats.ubers, charObj.name);
             currentIdx += rr.seedsConsumed;
-            lastDraw = { rarity: rr.rarity, charId: rr.charId, 
-                         originalCharId: rr.originalChar ? rr.originalChar.id : rr.charId,
-                         fromRerollRoute: rr.isRerolled };
+            lastDraw = { rarity: rr.rarity, charId: rr.charId, isRerolled: rr.isRerolled };
         }
 
         if (isG && currentIdx < seeds.length) {
@@ -292,7 +280,7 @@ function generateTxtRouteView(seeds, initialSeed) {
             if (limitedSet.has(charObj.id)) addStat(stats.limiteds, charObj.name);
             else if (gr.rarity === 'uber') addStat(stats.ubers, charObj.name);
             currentIdx += gr.seedsConsumed;
-            lastDraw = { rarity: gr.rarity, charId: gr.charId, originalCharId: gr.charId, fromRerollRoute: false };
+            lastDraw = { rarity: gr.rarity, charId: gr.charId, isRerolled: false };
         }
         segmentTxt += charNames.join(", ");
         outputArr.push(segmentTxt);

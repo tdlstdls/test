@@ -76,9 +76,15 @@ function generateFastForecast(initialSeed, columnConfigs) {
         const poolsToCheck = { legend: false, rare: false, super: false, uber: false };
         ['legend', 'rare', 'super', 'uber'].forEach(r => {
             if (config.pool[r]) config.pool[r].forEach(charObj => {
-                const isAuto = (typeof isAutomaticTarget === 'function') ? isAutomaticTarget(charObj.id) : String(charObj.id).startsWith('sim-new-');
-                if ((isAuto && !hiddenFindIds.has(charObj.id) && !hiddenFindIds.has(String(charObj.id))) || userTargetIds.has(charObj.id) || userTargetIds.has(parseInt(charObj.id))) {
-                    targetIds.add(charObj.id); poolsToCheck[r] = true;
+                const cid = charObj.id;
+                const isAuto = (typeof isAutomaticTarget === 'function') ? isAutomaticTarget(cid) : String(cid).startsWith('sim-new-');
+                const isHidden = hiddenFindIds.has(cid) || hiddenFindIds.has(String(cid));
+                const isManual = userTargetIds.has(cid) || userTargetIds.has(parseInt(cid));
+                const isPrioritized = prioritizedFindIds.includes(cid) || prioritizedFindIds.includes(String(cid)) || prioritizedFindIds.includes(parseInt(cid));
+
+                // 修正: 自動ターゲットかつ非表示リストになくても、優先リストにあればターゲットとして残す
+                if ((isAuto && !isHidden) || isManual || isPrioritized) {
+                    targetIds.add(cid); poolsToCheck[r] = true;
                 }
             });
         });
@@ -148,27 +154,17 @@ function generateFastForecast(initialSeed, columnConfigs) {
         if (resultMap.size === 0) return;
         let listItems = Array.from(resultMap.entries()).map(([id, data]) => ({ id, ...data }));
 
-        // --- ソートロジックの修正: 履歴優先、それ以外はID降順 ---
         listItems.sort((a, b) => {
-            // 1. 優先表示リスト（履歴）にあるものをその順序で
             const idxA = prioritizedFindIds.indexOf(a.id);
             const idxB = prioritizedFindIds.indexOf(b.id);
             if (idxA !== -1 && idxB !== -1) return idxA - idxB;
             if (idxA !== -1) return -1;
             if (idxB !== -1) return 1;
-
-            // 2. それ以外（再読み込み直後など）はキャラIDの降順
             const idA = String(a.id), idB = String(b.id);
             const isNewA = idA.startsWith('sim-new-'), isNewB = idB.startsWith('sim-new-');
-            
-            // 新規追加キャラ(sim-new)を最優先の降順にする
             if (isNewA && !isNewB) return -1;
             if (!isNewA && isNewB) return 1;
-            if (isNewA && isNewB) {
-                return parseInt(idB.replace('sim-new-', '')) - parseInt(idA.replace('sim-new-', ''));
-            }
-            
-            // 通常キャラはIDの数値で降順
+            if (isNewA && isNewB) return parseInt(idB.replace('sim-new-', '')) - parseInt(idA.replace('sim-new-', ''));
             return parseInt(idB) - parseInt(idA);
         });
 

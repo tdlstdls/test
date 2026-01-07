@@ -49,14 +49,13 @@ function searchInAllGachas(charId, charName) {
     }));
 
     const bestMatchesByName = new Map();
-    const scanRowsLimit = 10000; // 10000ロールまで検索
+    const scanRowsLimit = 10000;
     const seeds = new Uint32Array(scanRowsLimit * 2 + 10);
     const rng = new Xorshift32(currentSeed);
     for (let i = 0; i < seeds.length; i++) seeds[i] = rng.next();
 
     Object.keys(gachaMasterData.gachas).forEach(gachaId => {
         if (currentTableIds.has(gachaId)) return;
-
         const config = gachaMasterData.gachas[gachaId];
         const gachaName = config.name;
         
@@ -67,10 +66,7 @@ function searchInAllGachas(charId, charName) {
                 if (idx !== -1) targetPools.push({ rarity: r, pool: config.pool[r] });
             }
         });
-
         if (targetPools.length === 0) return;
-
-        // 同一名称のガチャがある場合、IDがより大きいものを優先して処理（無駄な計算を省く）
         const existing = bestMatchesByName.get(gachaName);
         if (existing && parseInt(gachaId) <= parseInt(existing.id)) return;
 
@@ -83,7 +79,6 @@ function searchInAllGachas(charId, charName) {
             else if (rVal < rates.rare + rates.super) rarity = 'super';
             else if (rVal < rates.rare + rates.super + rates.uber) rarity = 'uber';
             else if (rVal < rates.rare + rates.super + rates.uber + rates.legend) rarity = 'legend';
-
             const target = targetPools.find(p => p.rarity === rarity);
             if (target) {
                 const slot = seeds[n + 1] % target.pool.length;
@@ -93,25 +88,11 @@ function searchInAllGachas(charId, charName) {
                 }
             }
         }
-
-        // 1万ロール以内に見つからなかったがプールには存在する場合
-        if (hits.length === 0) {
-            hits.push("9999+");
-        }
-
-        bestMatchesByName.set(gachaName, {
-            id: gachaId,
-            gachaName: gachaName,
-            hits: hits
-        });
+        if (hits.length === 0) hits.push("9999+");
+        bestMatchesByName.set(gachaName, { id: gachaId, gachaName: gachaName, hits: hits });
     });
 
-    const results = Array.from(bestMatchesByName.values());
-    globalSearchResults = {
-        charName: charName,
-        results: results
-    };
-
+    globalSearchResults = { charName: charName, results: Array.from(bestMatchesByName.values()) };
     if (typeof generateRollsTable === 'function') generateRollsTable();
 }
 
@@ -126,7 +107,7 @@ function prioritizeChar(charId) {
     if (typeof generateRollsTable === 'function') generateRollsTable();
 }
 
-/** キャラクターの表示/非表示トグル */
+/** キャラクターの表示/非表示トグル (Xボタン) */
 function toggleCharVisibility(charId) {
     let idVal = charId;
     if (!isNaN(parseInt(charId)) && !String(charId).includes('sim-new')) {
@@ -138,6 +119,7 @@ function toggleCharVisibility(charId) {
             prioritizeChar(idVal);
         } else {
             hiddenFindIds.add(idVal);
+            // 個別に消した時だけ履歴から削除
             prioritizedFindIds = prioritizedFindIds.filter(id => id !== idVal);
         }
     } else {
@@ -153,7 +135,7 @@ function toggleCharVisibility(charId) {
     if (typeof updateMasterInfoView === 'function') updateMasterInfoView();
 }
 
-/** 全ターゲット消去 */
+/** 全ターゲット消去 (×ボタン) */
 function clearAllTargets() {
     prioritizedFindIds = [];
     globalSearchResults = null; 
@@ -177,11 +159,10 @@ function clearAllTargets() {
     if (typeof updateMasterInfoView === 'function') updateMasterInfoView();
 }
 
-/** 伝説トグル */
+/** 伝説トグルボタン操作 */
 function toggleLegendTargets() {
     const uniqueIds = [...new Set(tableGachaIds.map(idStr => {
-        let id = idStr;
-        if (id.endsWith('f') || id.endsWith('s') || id.endsWith('g')) id = id.slice(0, -1);
+        let id = idStr.replace(/[gfs]$/, '');
         return id;
     }))];
     let allLegendIds = [];
@@ -193,7 +174,10 @@ function toggleLegendTargets() {
     if (allLegendIds.length === 0) return;
     const anyVisible = allLegendIds.some(cid => !hiddenFindIds.has(cid));
     if (anyVisible) {
-        allLegendIds.forEach(cid => { hiddenFindIds.add(cid); prioritizedFindIds = prioritizedFindIds.filter(id => id !== cid); });
+        allLegendIds.forEach(cid => { 
+            hiddenFindIds.add(cid);
+            // 修正: 優先リストからは削除しない
+        });
     } else {
         allLegendIds.forEach(cid => hiddenFindIds.delete(cid));
     }
@@ -201,11 +185,10 @@ function toggleLegendTargets() {
     if (typeof updateMasterInfoView === 'function') updateMasterInfoView();
 }
 
-/** 限定トグル */
+/** 限定トグルボタン操作 */
 function toggleLimitedTargets() {
     const uniqueIds = [...new Set(tableGachaIds.map(idStr => {
-        let id = idStr;
-        if (id.endsWith('f') || id.endsWith('s') || id.endsWith('g')) id = id.slice(0, -1);
+        let id = idStr.replace(/[gfs]$/, '');
         return id;
     }))];
     const limitedSet = new Set();
@@ -223,7 +206,10 @@ function toggleLimitedTargets() {
     if (allLimitedIds.length === 0) return;
     const anyVisible = allLimitedIds.some(cid => !hiddenFindIds.has(cid));
     if (anyVisible) {
-        allLimitedIds.forEach(cid => { hiddenFindIds.add(cid); prioritizedFindIds = prioritizedFindIds.filter(id => id !== cid); });
+        allLimitedIds.forEach(cid => { 
+            hiddenFindIds.add(cid);
+            // 修正: 優先リストからは削除しない
+        });
     } else {
         allLimitedIds.forEach(cid => { hiddenFindIds.delete(cid); hiddenFindIds.delete(String(cid)); });
     }

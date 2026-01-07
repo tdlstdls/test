@@ -11,32 +11,21 @@ function simulateSingleSegment(sim, currentIdx, currentLastDraw, seeds) {
     let tempLastDraw = currentLastDraw;
 
     if (sim.g) {
-         if (sim.rolls === 15) { 
-            normalRolls = 14;
-            isGuaranteedStep = true; 
-         }
-         else if (sim.rolls === 7) { 
-            normalRolls = 6;
-            isGuaranteedStep = true; 
-         }
-         else if (sim.rolls === 11) { 
-            normalRolls = 10;
-            isGuaranteedStep = true; 
-         }
-         else { 
-            normalRolls = sim.rolls;
-         }
+         if (sim.rolls === 15) { normalRolls = 14; isGuaranteedStep = true; }
+         else if (sim.rolls === 7) { normalRolls = 6; isGuaranteedStep = true; }
+         else if (sim.rolls === 11) { normalRolls = 10; isGuaranteedStep = true; }
+         else { normalRolls = sim.rolls; }
     }
 
     for(let k=0; k < normalRolls; k++) {
         if (tempIdx >= seeds.length - 5) break;
         const rr = rollWithSeedConsumptionFixed(tempIdx, conf, seeds, tempLastDraw);
         if (rr.seedsConsumed === 0) break;
+        
         tempLastDraw = { 
             rarity: rr.rarity, 
             charId: rr.charId, 
-            originalCharId: rr.originalChar ?
-            rr.originalChar.id : rr.charId,
+            originalCharId: rr.originalChar ? rr.originalChar.id : rr.charId,
             isRerolled: rr.isRerolled,
             lastRerollSlot: rr.lastRerollSlot,
             fromRerollRoute: rr.isRerolled 
@@ -69,9 +58,11 @@ function parseSimConfig(str) {
     // 全ての空白（スペース、タブ等）で分割
     const tokens = str.trim().split(/\s+/);
     const segments = [];
+    
     // 2つ1組 (ID, Count) で読み込む
     for (let i = 0; i < tokens.length; i += 2) {
         if (i + 1 >= tokens.length) break;
+        
         const fullId = tokens[i];
         const rolls = parseInt(tokens[i + 1]);
         if (isNaN(rolls)) continue;
@@ -91,7 +82,6 @@ function parseSimConfig(str) {
 
 /** * 経路構成オブジェクトの文字列化
  * [形式修正] ガチャID スペース ロール数
- * 不要な $ 記号を削除しました
  */
 function stringifySimConfig(parts) {
     return parts.map(p => `${p.fullId || (p.id + (p.g ? "g" : ""))} ${p.rolls}`).join(" ");
@@ -104,9 +94,9 @@ function compressRoute(route) {
     let current = { ...route[0] };
     for (let i = 1; i < route.length; i++) {
         // 同じガチャID（gの有無含む）ならロール数を加算
-        const currentFullId = current.fullId ||
-        (current.id + (current.g ? "g" : ""));
+        const currentFullId = current.fullId || (current.id + (current.g ? "g" : ""));
         const targetFullId = route[i].id + (route[i].g ? "g" : "");
+        
         if (targetFullId === currentFullId) {
             current.rolls += route[i].rolls;
         } else {
@@ -131,6 +121,7 @@ function calculateRouteToCell(targetSeedIndex, targetGachaId, visibleGachaIds, c
     };
     const simSeeds = getSeeds();
     let startIdx = 0, initialLastDraw = null, validConfigParts = [];
+
     if (currentConfigStr && currentConfigStr.trim() !== "") {
         const existingConfigs = parseSimConfig(currentConfigStr);
         let tempIdx = 0, tempLastDraw = null;
@@ -151,13 +142,16 @@ function calculateRouteToCell(targetSeedIndex, targetGachaId, visibleGachaIds, c
         if (config) config._fullId = idStr; // 探索用
         return config;
     }).filter(c => c !== null);
+
     if (usableConfigs.length === 0) return null;
 
     const targetMaxPlat = parseInt(document.getElementById('sim-max-plat')?.value || 0, 10);
     const targetMaxGuar = parseInt(document.getElementById('sim-max-guar')?.value || 0, 10);
+
     let route = findPathBeamSearch(startIdx, targetSeedIndex, targetGachaId, usableConfigs, simSeeds, initialLastDraw, primaryTargetId, 0, 0);
     if (!route && targetMaxGuar > 0) route = findPathBeamSearch(startIdx, targetSeedIndex, targetGachaId, usableConfigs, simSeeds, initialLastDraw, primaryTargetId, 0, targetMaxGuar);
     if (!route && targetMaxPlat > 0) route = findPathBeamSearch(startIdx, targetSeedIndex, targetGachaId, usableConfigs, simSeeds, initialLastDraw, primaryTargetId, targetMaxPlat, targetMaxGuar);
+    
     if (route) {
         if (finalActionOverride) route.push(finalActionOverride);
         else route.push({ id: targetGachaId.replace(/[gfs]$/, ""), rolls: 1, fullId: targetGachaId });
@@ -181,9 +175,9 @@ function findPathBeamSearch(startIdx, targetIdx, targetGachaId, configs, simSeed
             if (current.idx === targetIdx) return current.path;
             const dist = targetIdx - current.idx;
             if (dist < 0) continue;
+
             for (const conf of sortedConfigs) {
-                const isPlat = conf.name.includes('プラチナ') ||
-                conf.name.includes('レジェンド');
+                const isPlat = conf.name.includes('プラチナ') || conf.name.includes('レジェンド');
                 const isG = conf._fullId.endsWith("g");
                 
                 if (!isPlat || current.platUsed < maxPlat) {
@@ -192,8 +186,7 @@ function findPathBeamSearch(startIdx, targetIdx, targetGachaId, configs, simSeed
                         const newPath = [...current.path, { id: conf.id, rolls: 1, g: isG, fullId: conf._fullId }];
                         const newDraw = { 
                             rarity: res.rarity, charId: res.charId, 
-                            originalCharId: res.originalChar ?
-                            res.originalChar.id : res.charId,
+                            originalCharId: res.originalChar ? res.originalChar.id : res.charId,
                             isRerolled: res.isRerolled, lastRerollSlot: res.lastRerollSlot, fromRerollRoute: res.isRerolled
                         };
                         if (current.idx + res.seedsConsumed === targetIdx) return newPath;
@@ -222,39 +215,10 @@ function findPathBeamSearch(startIdx, targetIdx, targetGachaId, configs, simSeed
     return null;
 }
 
-/**
- * 経路探索時のスコア計算
- * 同一ガチャの連続使用に高いプライオリティを与えます
- */
 function calculateScore(currentScore, res, dist, targetIdx, primaryTargetId, confId, currentPath) {
     let s = currentScore;
-
-    // 1. 同一ガチャ連続使用ボーナス (強化)
-    if (currentPath.length > 0) {
-        const lastStep = currentPath[currentPath.length - 1];
-        if (lastStep.id === confId) {
-            s += 2000; 
-        }
-    }
-
-    // 2. パリティ（偶数・奇数）の一致
-    if ((dist % 2 !== 0) === (res.seedsConsumed % 2 !== 0)) {
-        s += 50; 
-    } else {
-        s -= 50;
-    }
-
-    // 3. ターゲットキャラ出現ボーナス
-    if (primaryTargetId && String(res.charId) === String(primaryTargetId)) {
-        s += 1000;
-    }
-
-    // 4. レアリティボーナス
-    if (res.rarity === 'legend') {
-        s += 3000;
-    } else if (res.rarity === 'uber') {
-        s += 2500;
-    }
-
+    if ((dist % 2 !== 0) === (res.seedsConsumed % 2 !== 0)) s += 500; else s -= 50;
+    if (primaryTargetId && String(res.charId) === String(primaryTargetId)) s += 1000;
+    if (res.rarity === 'legend') s += 300; else if (res.rarity === 'uber') s += 100;
     return s + res.seedsConsumed;
 }
