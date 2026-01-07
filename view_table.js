@@ -19,11 +19,10 @@ function generateRollsTable() {
         const seeds = [];
         const rngForSeeds = new Xorshift32(initialSeed);
         for (let i = 0; i < numRolls * 15 + 100; i++) seeds.push(rngForSeeds.next());
-        
         const columnConfigs = prepareColumnConfigs();
         const tableData = executeTableSimulation(numRolls, columnConfigs, seeds);
         
-        // 3. ハイライト判定とシミュレーション後の最終シード取得
+        // ハイライト判定とシミュレーション後の最終シード取得
         const { highlightMap, guarHighlightMap, lastSeedValue } = preparePathHighlightMaps(initialSeed, seeds, numRolls);
         finalSeedForUpdate = lastSeedValue;
 
@@ -38,10 +37,9 @@ function generateRollsTable() {
 
         const container = document.getElementById('rolls-table-container');
         if (!container) return;
-
+        
         // テーブル本体のHTMLを先に生成
         const tableHtml = buildTableDOM(numRolls, columnConfigs, tableData, seeds, highlightMap, guarHighlightMap);
-        
         let simNoticeHtml = '';
         if (isSimulationMode) {
             simNoticeHtml = `<div id="sim-auto-calc-notice" style="font-size: 0.75em; color: #666; padding: 5px 10px; background: #fff;">
@@ -49,20 +47,14 @@ function generateRollsTable() {
             </div>`;
         }
 
-        // --- 修正箇所: Sim/Txtモード時の表示ロジック ---
         if (isTxtMode && isSimulationMode) {
             const txtViewHtml = generateTxtRouteView(seeds, initialSeed);
-            
-            // ルート未入力時のエラーメッセージが含まれているかチェック
             if (txtViewHtml.includes("ルートが入力されていません")) {
-                // ルートがない場合は、メッセージを表示せず通常のテーブルのみを表示
                 container.innerHTML = findAreaHtml + simNoticeHtml + tableHtml;
             } else {
-                // ルートがある場合は、テキストビューを上、テーブルを下にして両方表示（利便性のため）
                 container.innerHTML = findAreaHtml + txtViewHtml + simNoticeHtml + tableHtml;
             }
         } else {
-            // 通常テーブル表示モード
             container.innerHTML = findAreaHtml + simNoticeHtml + tableHtml;
         }
 
@@ -83,9 +75,10 @@ function buildTableDOM(numRolls, columnConfigs, tableData, seeds, highlightMap, 
         <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 3px; font-weight: normal; white-space: normal;">
             <span style="font-weight: bold; margin-right: 1px; font-size: 11px;">A</span>
             <button class="add-gacha-btn" onclick="addGachaColumn()" style="font-size: 11px; padding: 1px 4px;">＋列を追加</button>
-            <button class="add-gacha-btn" style="background-color: #17a2b8; font-size: 11px; padding: 1px 4px;" onclick="addGachasFromSchedule()">skdで追加</button>
+            <button class="add-gacha-btn" style="background-color: #17a2b8; 
+            font-size: 11px; padding: 1px 4px;" onclick="addGachasFromSchedule()">skdで追加</button>
             <span id="add-id-trigger" style="cursor:pointer; text-decoration:underline; color:#007bff; font-size: 11px; font-weight:bold;"
-onclick="showIdInput()">IDで追加</span>
+            onclick="showIdInput()">IDで追加</span>
             <button class="remove-btn" onclick="resetToFirstGacha()" title="一番左の列以外を解除" style="font-size: 11px; padding: 1px 5px; margin-left: 2px;">×</button>
         </div>`;
     let totalGachaCols = 0;
@@ -177,8 +170,20 @@ function renderTableRowSide(rowIndex, seedIndex, columnConfigs, tableData, seeds
             
             const config = columnConfigs[colIndex];
             const normalRolls = config._guaranteedNormalRolls || 10;
-            let lastDraw = (rowIndex > 0 && tableData[seedIndex - 2]?.[colIndex]?.roll) ?
-                { rarity: tableData[seedIndex - 2][colIndex].roll.rarity, charId: tableData[seedIndex - 2][colIndex].roll.charId } : null;
+
+            // 確定枠シミュレーション用の初期状態（直前の結果）を構築
+            let lastDraw = null;
+            if (rowIndex > 0) {
+                const prevRoll = tableData[seedIndex - 2]?.[colIndex]?.roll;
+                if (prevRoll) {
+                    lastDraw = { 
+                        rarity: prevRoll.rarity, 
+                        charId: prevRoll.charId,
+                        originalCharId: prevRoll.originalChar ? prevRoll.originalChar.id : prevRoll.charId,
+                        fromRerollRoute: prevRoll.isRerolled 
+                    };
+                }
+            }
             
             const gRes = calculateGuaranteedLookahead(seedIndex, config, seeds, lastDraw, normalRolls);
             const addr = formatAddress(gRes.nextRollStartSeedIndex);
@@ -270,7 +275,9 @@ function generateTxtRouteView(seeds, initialSeed) {
             else if (limitedSet.has(charObj.id)) addStat(stats.limiteds, charObj.name);
             else if (rr.rarity === 'uber') addStat(stats.ubers, charObj.name);
             currentIdx += rr.seedsConsumed;
-            lastDraw = { rarity: rr.rarity, charId: rr.charId, isRerolled: rr.isRerolled };
+            lastDraw = { rarity: rr.rarity, charId: rr.charId, 
+                         originalCharId: rr.originalChar ? rr.originalChar.id : rr.charId,
+                         fromRerollRoute: rr.isRerolled };
         }
 
         if (isG && currentIdx < seeds.length) {
@@ -280,7 +287,7 @@ function generateTxtRouteView(seeds, initialSeed) {
             if (limitedSet.has(charObj.id)) addStat(stats.limiteds, charObj.name);
             else if (gr.rarity === 'uber') addStat(stats.ubers, charObj.name);
             currentIdx += gr.seedsConsumed;
-            lastDraw = { rarity: gr.rarity, charId: gr.charId, isRerolled: false };
+            lastDraw = { rarity: gr.rarity, charId: gr.charId, originalCharId: gr.charId, fromRerollRoute: false };
         }
         segmentTxt += charNames.join(", ");
         outputArr.push(segmentTxt);

@@ -21,6 +21,7 @@ class Xorshift32 {
  */
 function rollWithSeedConsumptionFixed(startIndex, gachaConfig, seeds, lastDrawInfo) {
     if (startIndex + 1 >= seeds.length) return { seedsConsumed: 0, finalChar: { name: "データ不足", id: null }, originalChar: null, isRerolled: false, rarity: null, charId: null, s0: null, s1: null, s2: null };
+    
     const s0_seed = seeds[startIndex];
     const s1_seed = seeds[startIndex + 1];
 
@@ -49,11 +50,10 @@ function rollWithSeedConsumptionFixed(startIndex, gachaConfig, seeds, lastDrawIn
     let seedsConsumed = 2;
     let isRerolled = false;
     let reRollIndex = null;
-    let lastRerollSlotAtCurrent = null; // 今回の最終リロールスロット
+    let lastRerollSlotAtCurrent = null;
     let uniqueTotalAtCurrent = totalChars;
 
     // --- 【判定1】連続レア被り(Consecutive Duplicate) ---
-    // 条件: ジャンプ着地ルートであり、かつ移動元の「最終確定キャラID」と今回が一致
     let isConsecutiveRerollTarget = false;
     if (currentRarity === 'rare' && lastDrawInfo && lastDrawInfo.fromRerollRoute) {
         if (lastDrawInfo.charId !== null && lastDrawInfo.charId === character.id) {
@@ -62,8 +62,6 @@ function rollWithSeedConsumptionFixed(startIndex, gachaConfig, seeds, lastDrawIn
     }
 
     // --- 【判定2】通常レア被り(Standard Duplicate) ---
-    // 条件: 連続被りでない場合で、垂直方向の「初期キャラID」と今回が一致
-    // 修正: ジャンプ着地時であっても垂直方向の比較(originalCharId)を行う
     let isStandardDuplicate = false;
     if (!isConsecutiveRerollTarget && currentRarity === 'rare' && lastDrawInfo && lastDrawInfo.rarity === 'rare') {
         if (lastDrawInfo.originalCharId !== null && lastDrawInfo.originalCharId === character.id) {
@@ -77,7 +75,6 @@ function rollWithSeedConsumptionFixed(startIndex, gachaConfig, seeds, lastDrawIn
         let removeIndex = charIndex;
         isRerolled = true;
 
-        // 何を回避するためのリロールかを決定
         const targetIdToAvoid = isConsecutiveRerollTarget ? lastDrawInfo.charId : lastDrawInfo.originalCharId;
 
         while (true) {
@@ -91,12 +88,10 @@ function rollWithSeedConsumptionFixed(startIndex, gachaConfig, seeds, lastDrawIn
             reRollIndex = nextSeedVal % uniqueTotalAtCurrent;
             lastRerollSlotAtCurrent = reRollIndex;
             character = currentPool[reRollIndex];
-            
-            // 回避対象（移動元キャラ or 垂直隣接キャラ）と異なるキャラが出るまでループ
+
             if (character.id !== targetIdToAvoid) {
                 break;
             }
-            
             removeIndex = reRollIndex;
             if (!currentPool.some(c => c.id !== character.id)) break;
         }
@@ -105,19 +100,12 @@ function rollWithSeedConsumptionFixed(startIndex, gachaConfig, seeds, lastDrawIn
     const finalSeedVal = (startIndex + seedsConsumed - 1 < seeds.length) ? seeds[startIndex + seedsConsumed - 1] : null;
 
     return { 
-        s0: s0_seed, 
-        s1: s1_seed, 
-        s2: finalSeedVal,
-        originalChar: originalChar, 
-        finalChar: character, 
-        isRerolled: isRerolled, 
-        isConsecutiveRerollTarget: isConsecutiveRerollTarget, 
-        rarity: currentRarity, 
-        charId: character.id, 
-        charIndex: charIndex, 
-        totalChars: totalChars, 
-        uniqueTotal: uniqueTotalAtCurrent, 
-        reRollIndex: reRollIndex, 
+        s0: s0_seed, s1: s1_seed, s2: finalSeedVal,
+        originalChar: originalChar, finalChar: character, 
+        isRerolled: isRerolled, isConsecutiveRerollTarget: isConsecutiveRerollTarget, 
+        rarity: currentRarity, charId: character.id, 
+        charIndex: charIndex, totalChars: totalChars, 
+        uniqueTotal: uniqueTotalAtCurrent, reRollIndex: reRollIndex, 
         lastRerollSlot: isRerolled ? lastRerollSlotAtCurrent : null,
         seedsConsumed: seedsConsumed 
     };
@@ -134,36 +122,37 @@ function rollGuaranteedUber(startIndex, gachaConfig, seeds) {
     return { seedsConsumed: 1, finalChar: character, originalChar: character, isRerolled: false, rarity: 'uber', charId: character.id, charIndex: charIndex, totalChars: pool.length, s0: s0_seed };
 }
 
-/** 確定枠の先読み計算 */
+/** 確定枠の先読み計算（wtable比較用・単一行表示版） */
 function calculateGuaranteedLookahead(startSeedIndex, gachaConfig, allSeeds, initialLastDraw, normalRollsCount = 10) {
     if (!gachaConfig || !gachaConfig.pool['uber']) return { name: "N/A", charId: null, nextSeed: null, nextRollStartSeedIndex: null };
-    const simulateRoute = (startSeed, startLastDraw) => {
-        let seedCursor = startSeed, lastDraw = startLastDraw;
-        for (let i = 0; i < normalRollsCount; i++) {
-            if (seedCursor + 1 >= allSeeds.length) return null;
-            const rr = rollWithSeedConsumptionFixed(seedCursor, gachaConfig, allSeeds, lastDraw);
-            if (rr.seedsConsumed === 0) return null;
-            seedCursor += rr.seedsConsumed;
-            lastDraw = { 
-                rarity: rr.rarity, 
-                charId: rr.charId, 
-                originalCharId: rr.originalChar ? rr.originalChar.id : rr.charId,
-                isRerolled: rr.isRerolled,
-                lastRerollSlot: rr.lastRerollSlot,
-                fromRerollRoute: rr.isRerolled
-            };
-        }
-        if (seedCursor >= allSeeds.length) return null;
-        const gr = rollGuaranteedUber(seedCursor, gachaConfig, allSeeds);
-        return { 
-            name: gr.finalChar.name, 
-            charId: gr.finalChar.id, 
-            nextSeed: (seedCursor + 1 < allSeeds.length) ? allSeeds[seedCursor + 1] : null, 
-            nextRollStartSeedIndex: seedCursor + 1 
-        };
-    };
 
-    const mainResult = simulateRoute(startSeedIndex, initialLastDraw);
-    if (!mainResult) return { name: "データ不足", charId: null, nextSeed: null, nextRollStartSeedIndex: null };
-    return { ...mainResult, alternative: null };
+    let seedCursor = startSeedIndex;
+    let lastDraw = initialLastDraw;
+
+    // 道中の通常ロールを実行（被りによるトラック移行を再現）
+    for (let i = 0; i < normalRollsCount; i++) {
+        if (seedCursor + 1 >= allSeeds.length) break;
+        const rr = rollWithSeedConsumptionFixed(seedCursor, gachaConfig, allSeeds, lastDraw);
+        if (rr.seedsConsumed === 0) break;
+        seedCursor += rr.seedsConsumed;
+        lastDraw = { 
+            rarity: rr.rarity, 
+            charId: rr.charId, 
+            originalCharId: rr.originalChar ? rr.originalChar.id : rr.charId,
+            isRerolled: rr.isRerolled,
+            lastRerollSlot: rr.lastRerollSlot,
+            fromRerollRoute: rr.isRerolled
+        };
+    }
+
+    if (seedCursor >= allSeeds.length) return { name: "データ不足", charId: null, nextSeed: null, nextRollStartSeedIndex: null };
+    
+    // 11連目の確定枠を抽選
+    const gr = rollGuaranteedUber(seedCursor, gachaConfig, allSeeds);
+    
+    return { 
+        name: gr.finalChar.name, 
+        charId: gr.finalChar.id, 
+        nextRollStartSeedIndex: seedCursor + 1
+    };
 }
