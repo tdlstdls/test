@@ -1,4 +1,4 @@
-/** @file view_table.js @description ガチャ結果テーブルの描画とデバッグ情報の制御 */
+/** @file view_table.js @description ガチャ結果テーブルの描画とデバッグ情報の制御（長押し・Ctrl+クリック対応） */
 
 const COLOR_ROUTE_HIGHLIGHT = '#aaddff';
 const COLOR_ROUTE_UBER = '#66b2ff';
@@ -38,11 +38,12 @@ function generateRollsTable() {
         if (!document.getElementById('debug-modal')) {
             const modal = document.createElement('div');
             modal.id = 'debug-modal';
-            modal.style = "display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.7); overflow:auto;";
+            modal.style = "display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.8); overflow:auto; -webkit-overflow-scrolling:touch;";
             modal.innerHTML = `
-                <div style="background:#fff; margin:5% auto; padding:20px; width:90%; max-width:1000px; border-radius:8px; font-family:monospace; position:relative;">
-                    <span onclick="this.parentElement.parentElement.style.display='none'" style="position:absolute; right:20px; top:10px; cursor:pointer; font-size:24px;">&times;</span>
-                    <h3>11G Calculation Debug Log</h3>
+                <div style="background:#fff; margin:5% auto; padding:20px; width:95%; max-width:1000px; border-radius:8px; font-family:monospace; position:relative; box-shadow:0 4px 15px rgba(0,0,0,0.5);">
+                    <span onclick="this.parentElement.parentElement.style.display='none'" style="position:absolute; right:15px; top:5px; cursor:pointer; font-size:30px; font-weight:bold;">&times;</span>
+                    <h3 style="margin-top:0; border-bottom:2px solid #eee; padding-bottom:10px;">11G Calculation Debug Log</h3>
+                    <p style="font-size:11px; color:#666;">※計算過程：単発10回の連続性とレア被り（排出後基準）の検証ログ</p>
                     <div id="debug-content" style="overflow-x:auto;"></div>
                 </div>`;
             document.body.appendChild(modal);
@@ -61,7 +62,6 @@ function buildTableDOM(numRolls, columnConfigs, tableData, seeds, highlightMap, 
     const calcColClass = `calc-column ${showSeedColumns ? '' : 'hidden'}`;
     let html = `<table style="width:100%; border-collapse:collapse; font-size:12px;"><thead>`;
     
-    // ヘッダー生成
     html += `<tr class="sticky-row">
         <th class="col-no">NO.</th><th class="${calcColClass}">SEED</th>
         ${generateNameHeaderHTML()}
@@ -86,21 +86,24 @@ function renderTableRowSide(rowIndex, seedIndex, columnConfigs, tableData, seeds
         const data = tableData[seedIndex][colIndex];
         if (!data) return;
 
-        // 通常ロール表示
         const roll = data.roll;
         const rarityStyle = roll.rarity === 'uber' ? 'background:#ffe0e0;' : (roll.rarity === 'legend' ? 'background:#ffc0ff;' : '');
         sideHtml += `<td style="${rarityStyle} border:1px solid #eee; padding:4px;">${roll.finalChar.name}</td>`;
 
-        // 11G独立計算データの表示
         if (data.guaranteed) {
             const g = data.guaranteed;
             const addr = formatAddress(g.nextRollStartSeedIndex);
             const verifiedStyle = g.isVerified ? "" : "border-left: 3px solid #ff4444;";
             
-            // Ctrl+クリックでデバッグログを表示
-            const debugClick = `onclick="if(event.ctrlKey) showDebugLog(${seedIndex}, ${colIndex})"`;
+            // iPhone用の長押し処理と、PC用のCtrl+クリック処理を両立
+            const touchAttrs = `
+                onpointerdown="window.start11GTimer(${seedIndex}, ${colIndex})" 
+                onpointerup="window.clear11GTimer()" 
+                onpointerleave="window.clear11GTimer()"
+                onclick="if(event.ctrlKey) { showDebugLog(${seedIndex}, ${colIndex}); event.preventDefault(); }"
+            `;
             
-            sideHtml += `<td ${debugClick} style="background:#eef7ff; ${verifiedStyle} cursor:help; font-size:11px; padding:4px; border:1px solid #ddd;">
+            sideHtml += `<td ${touchAttrs} style="background:#eef7ff; ${verifiedStyle} cursor:help; font-size:11px; padding:4px; border:1px solid #ddd; user-select:none; -webkit-user-select:none;">
                 <div style="color:#666;">${addr}</div>
                 <div style="font-weight:bold; color:#0056b3;">${g.name}</div>
             </td>`;
@@ -109,47 +112,59 @@ function renderTableRowSide(rowIndex, seedIndex, columnConfigs, tableData, seeds
     return sideHtml;
 }
 
+/** 長押しタイマーの管理 */
+let gLongPressTimer = null;
+window.start11GTimer = function(seedIdx, colIdx) {
+    window.clear11GTimer();
+    gLongPressTimer = setTimeout(() => {
+        showDebugLog(seedIdx, colIdx);
+        gLongPressTimer = null;
+    }, 800); // 0.8秒で長押し判定
+};
+
+window.clear11GTimer = function() {
+    if (gLongPressTimer) {
+        clearTimeout(gLongPressTimer);
+        gLongPressTimer = null;
+    }
+};
+
 /** デバッグログの表示処理 */
 window.showDebugLog = function(seedIndex, colIndex) {
-    const tableEl = document.getElementById('rolls-table-container');
-    // executeTableSimulationの結果にアクセス（グローバルまたはクロージャ内での保持が必要ですが、ここではDOM構築時のデータを利用）
-    // 簡易化のため、再計算はせず構築済みデータを参照
-    // 実際の運用では tableData をグローバル変数にするか、データ属性に逃がす必要があります。
-    // ここでは、現在のテーブル生成で使われた tableData が利用可能であると仮定します。
-    
-    // tableDataが取得できない場合のためのフォールバック処理は別途実装
+    if (!currentTableData) return;
     const gData = currentTableData[seedIndex][colIndex].guaranteed;
     if (!gData || !gData.debugLog) return;
 
-    let logHtml = `<table border="1" style="width:100%; border-collapse:collapse; background:#fff; font-size:12px;">
-        <tr style="background:#eee;">
-            <th>Step</th><th>Index</th><th>SEED</th><th>演算 (Seed % Pool)</th><th>排出キャラ</th><th>リロール詳細</th><th>消費</th>
+    let logHtml = `<table border="1" style="width:100%; border-collapse:collapse; background:#fff; font-size:11px;">
+        <tr style="background:#eee; position:sticky; top:0;">
+            <th>Step</th><th>SEED</th><th>演算 (Seed % Pool)</th><th>排出キャラ</th><th>被り判定詳細</th>
         </tr>`;
 
     gData.debugLog.forEach(log => {
         let rerollTxt = "-";
         if (log.isRerolled) {
-            rerollTxt = `被り回避: ID ${log.rerollProcess.prevId}<br>新SEED: ${log.rerollProcess.nextSeed}<br>剰余: ${log.rerollProcess.reRollIndex}`;
+            rerollTxt = `<span style="color:red;">被り回避</span><br>前回ID:${log.rerollProcess.prevId}を回避<br>新SEED:${log.rerollProcess.nextSeed}<br>再抽選剰余:${log.rerollProcess.reRollIndex}`;
         }
         
         const math = log.step.includes("Uber") ? 
-            `${log.seedValue} % ${log.totalChars} = ${log.charIndex}` :
-            `${log.s1} % ${log.totalChars} = ${log.charIndex}`;
+            `${log.seedValue} % ${log.totalChars} = <b>${log.charIndex}</b>` :
+            `${log.s1} % ${log.totalChars} = <b>${log.charIndex}</b>`;
 
         logHtml += `<tr>
-            <td>${log.step}</td>
-            <td>${log.startIndex}</td>
+            <td style="white-space:nowrap;">${log.step}</td>
             <td>${log.s1 || log.seedValue}</td>
             <td>${math}</td>
-            <td>${log.finalChar.name} (ID:${log.finalChar.id})</td>
-            <td>${rerollTxt}</td>
-            <td>${log.consumed || 1}</td>
+            <td style="font-weight:bold;">${log.finalChar.name}<br><small>(ID:${log.finalChar.id})</small></td>
+            <td style="font-size:10px;">${rerollTxt}</td>
         </tr>`;
     });
     logHtml += `</table>`;
     
-    document.getElementById('debug-content').innerHTML = logHtml;
-    document.getElementById('debug-modal').style.display = 'block';
+    const contentArea = document.getElementById('debug-content');
+    if (contentArea) {
+        contentArea.innerHTML = logHtml;
+        document.getElementById('debug-modal').style.display = 'block';
+    }
 };
 
 /** アドレス形式変換 (例: 24 -> B13) */
