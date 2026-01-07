@@ -76,7 +76,6 @@ function rollWithSeedConsumptionFixed(startIndex, gachaConfig, seeds, lastDrawIn
         isRerolled = true;
 
         const targetIdToAvoid = isConsecutiveRerollTarget ? lastDrawInfo.charId : lastDrawInfo.originalCharId;
-
         while (true) {
             currentPool.splice(removeIndex, 1);
             uniqueTotalAtCurrent = currentPool.length;
@@ -88,7 +87,6 @@ function rollWithSeedConsumptionFixed(startIndex, gachaConfig, seeds, lastDrawIn
             reRollIndex = nextSeedVal % uniqueTotalAtCurrent;
             lastRerollSlotAtCurrent = reRollIndex;
             character = currentPool[reRollIndex];
-
             if (character.id !== targetIdToAvoid) {
                 break;
             }
@@ -122,18 +120,26 @@ function rollGuaranteedUber(startIndex, gachaConfig, seeds) {
     return { seedsConsumed: 1, finalChar: character, originalChar: character, isRerolled: false, rarity: 'uber', charId: character.id, charIndex: charIndex, totalChars: pool.length, s0: s0_seed };
 }
 
-/** 確定枠の先読み計算（wtable比較用・単一行表示版） */
+/** 確定枠の先読み計算（wtable比較用・Alternative対応版） */
 function calculateGuaranteedLookahead(startSeedIndex, gachaConfig, allSeeds, initialLastDraw, normalRollsCount = 10) {
     if (!gachaConfig || !gachaConfig.pool['uber']) return { name: "N/A", charId: null, nextSeed: null, nextRollStartSeedIndex: null };
 
+    // 1. メインルート（実際に発生するルート）のシミュレーション
     let seedCursor = startSeedIndex;
     let lastDraw = initialLastDraw;
+    let rerollHappened = false;
+    let firstRerollIndex = -1;
 
-    // 道中の通常ロールを実行（被りによるトラック移行を再現）
     for (let i = 0; i < normalRollsCount; i++) {
         if (seedCursor + 1 >= allSeeds.length) break;
         const rr = rollWithSeedConsumptionFixed(seedCursor, gachaConfig, allSeeds, lastDraw);
         if (rr.seedsConsumed === 0) break;
+        
+        if (rr.isRerolled && !rerollHappened) {
+            rerollHappened = true;
+            firstRerollIndex = i;
+        }
+
         seedCursor += rr.seedsConsumed;
         lastDraw = { 
             rarity: rr.rarity, 
@@ -145,14 +151,49 @@ function calculateGuaranteedLookahead(startSeedIndex, gachaConfig, allSeeds, ini
         };
     }
 
-    if (seedCursor >= allSeeds.length) return { name: "データ不足", charId: null, nextSeed: null, nextRollStartSeedIndex: null };
-    
-    // 11連目の確定枠を抽選
-    const gr = rollGuaranteedUber(seedCursor, gachaConfig, allSeeds);
-    
-    return { 
-        name: gr.finalChar.name, 
-        charId: gr.finalChar.id, 
-        nextRollStartSeedIndex: seedCursor + 1
+    const grMain = rollGuaranteedUber(seedCursor, gachaConfig, allSeeds);
+    const result = {
+        name: grMain.finalChar.name,
+        charId: grMain.finalChar.id,
+        nextRollStartSeedIndex: seedCursor + 1,
+        alternative: null
     };
+
+    // 2. もし道中でリロールが発生していた場合、「リロールがなかった場合」の確定枠も計算して返す
+    if (rerollHappened) {
+        let altCursor = startSeedIndex;
+        let altLastDraw = initialLastDraw;
+        
+        for (let i = 0; i < normalRollsCount; i++) {
+            if (altCursor + 1 >= allSeeds.length) break;
+            
+            // 強制的に reroll を発生させない「仮定」の抽選
+            // logicを簡略化するため、通常の seedsConsumed=2 として進める
+            const s0 = allSeeds[altCursor];
+            const rVal = s0 % 10000;
+            let rarity = 'rare';
+            const rates = gachaConfig.rarity_rates || {};
+            if (rVal < (rates.rare || 0)) rarity = 'rare';
+            else if (rVal < (rates.rare || 0) + (rates.super || 0)) rarity = 'super';
+            else if (rVal < (rates.rare || 0) + (rates.super || 0) + (rates.uber || 0)) rarity = 'uber';
+            else rarity = 'legend';
+
+            const pool = gachaConfig.pool[rarity] || [];
+            if (pool.length > 0) {
+                const s1 = allSeeds[altCursor + 1];
+                const cIdx = s1 % pool.length;
+                const char = pool[cIdx];
+                altLastDraw = { rarity: rarity, charId: char.id, originalCharId: char.id, fromRerollRoute: false };
+            }
+            altCursor += 2; // リロールなしを仮定
+        }
+        const grAlt = rollGuaranteedUber(altCursor, gachaConfig, allSeeds);
+        result.alternative = {
+            name: grAlt.finalChar.name,
+            charId: grAlt.finalChar.id,
+            nextRollStartSeedIndex: altCursor + 1
+        };
+    }
+
+    return result;
 }

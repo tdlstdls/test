@@ -19,9 +19,10 @@ function generateRollsTable() {
         const seeds = [];
         const rngForSeeds = new Xorshift32(initialSeed);
         for (let i = 0; i < numRolls * 15 + 100; i++) seeds.push(rngForSeeds.next());
+
         const columnConfigs = prepareColumnConfigs();
         const tableData = executeTableSimulation(numRolls, columnConfigs, seeds);
-        
+
         // ハイライト判定とシミュレーション後の最終シード取得
         const { highlightMap, guarHighlightMap, lastSeedValue } = preparePathHighlightMaps(initialSeed, seeds, numRolls);
         finalSeedForUpdate = lastSeedValue;
@@ -37,7 +38,7 @@ function generateRollsTable() {
 
         const container = document.getElementById('rolls-table-container');
         if (!container) return;
-        
+
         // テーブル本体のHTMLを先に生成
         const tableHtml = buildTableDOM(numRolls, columnConfigs, tableData, seeds, highlightMap, guarHighlightMap);
         let simNoticeHtml = '';
@@ -75,12 +76,11 @@ function buildTableDOM(numRolls, columnConfigs, tableData, seeds, highlightMap, 
         <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 3px; font-weight: normal; white-space: normal;">
             <span style="font-weight: bold; margin-right: 1px; font-size: 11px;">A</span>
             <button class="add-gacha-btn" onclick="addGachaColumn()" style="font-size: 11px; padding: 1px 4px;">＋列を追加</button>
-            <button class="add-gacha-btn" style="background-color: #17a2b8; 
-            font-size: 11px; padding: 1px 4px;" onclick="addGachasFromSchedule()">skdで追加</button>
-            <span id="add-id-trigger" style="cursor:pointer; text-decoration:underline; color:#007bff; font-size: 11px; font-weight:bold;"
-            onclick="showIdInput()">IDで追加</span>
+            <button class="add-gacha-btn" style="background-color: #17a2b8; font-size: 11px; padding: 1px 4px;" onclick="addGachasFromSchedule()">skdで追加</button>
+            <span id="add-id-trigger" style="cursor:pointer; text-decoration:underline; color:#007bff; font-size: 11px; font-weight:bold;" onclick="showIdInput()">IDで追加</span>
             <button class="remove-btn" onclick="resetToFirstGacha()" title="一番左の列以外を解除" style="font-size: 11px; padding: 1px 5px; margin-left: 2px;">×</button>
         </div>`;
+    
     let totalGachaCols = 0;
     tableGachaIds.forEach(idWithSuffix => {
         let id = idWithSuffix.replace(/[gfs]$/, '');
@@ -164,14 +164,11 @@ function renderTableRowSide(rowIndex, seedIndex, columnConfigs, tableData, seeds
         sideHtml += cellHtml;
 
         if (isG) {
-            let gContent = '---';
             let cellStyle = 'white-space: normal; width: auto; word-break: break-all; vertical-align: middle; ';
             if (isSimulationMode && guarHighlightMap.get(seedIndex) === id) cellStyle += `background-color: ${COLOR_ROUTE_UBER};`;
             
             const config = columnConfigs[colIndex];
             const normalRolls = config._guaranteedNormalRolls || 10;
-
-            // 確定枠シミュレーション用の初期状態（直前の結果）を構築
             let lastDraw = null;
             if (rowIndex > 0) {
                 const prevRoll = tableData[seedIndex - 2]?.[colIndex]?.roll;
@@ -194,8 +191,12 @@ function renderTableRowSide(rowIndex, seedIndex, columnConfigs, tableData, seeds
             let gClickAction = isSimulationMode ?
                 `onclick="onGachaCellClick(${seedIndex}, '${id}', '${escapedName}', '${gType}')"` :
                 (gRes.nextRollStartSeedIndex > 0 ? `onclick="updateSeedAndRefresh(${seeds[gRes.nextRollStartSeedIndex - 1]})"` : "");
-            let mainHtml = `<span style="font-size:0.9em; color:#666;">${addr}</span><span class="char-link" style="cursor:pointer;" ${gClickAction}>${charName}</span>`;
-            let altHtml = '';
+            
+            // メインの結果表示
+            let mainHtml = `<div style="padding: 2px 0;"><span style="font-size:0.9em; color:#666;">${addr}</span><span class="char-link" style="cursor:pointer;" ${gClickAction}>${charName}</span></div>`;
+            
+            // Alternative（リロールなしの別ルート）がある場合のみ2段にする
+            let gContent = '';
             if (gRes.alternative) {
                 const altAddr = formatAddress(gRes.alternative.nextRollStartSeedIndex);
                 let altCharName = gRes.alternative.name;
@@ -203,9 +204,13 @@ function renderTableRowSide(rowIndex, seedIndex, columnConfigs, tableData, seeds
                 let altClickAction = isSimulationMode ?
                     `onclick="onGachaCellClick(${seedIndex}, '${id}', '${escAlt}', '${gType}')"` :
                     (gRes.alternative.nextRollStartSeedIndex > 0 ? `onclick="updateSeedAndRefresh(${seeds[gRes.alternative.nextRollStartSeedIndex - 1]})"` : "");
-                altHtml = `<span style="font-size:0.9em; color:#666;">${altAddr}</span><span class="char-link" style="cursor:pointer;" ${altClickAction}>${altCharName}</span><br>`;
+                
+                let altHtml = `<div style="padding: 2px 0; border-bottom: 1px dashed #ccc; opacity: 0.7;"><span style="font-size:0.85em; color:#888;">${altAddr}</span><span class="char-link" style="cursor:pointer;" ${altClickAction}>${altCharName}</span></div>`;
+                gContent = altHtml + mainHtml;
+            } else {
+                gContent = mainHtml;
             }
-            gContent = altHtml + mainHtml;
+            
             sideHtml += `<td class="gacha-cell gacha-column" style="${cellStyle}">${gContent}</td>`;
         }
     });
