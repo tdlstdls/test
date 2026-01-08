@@ -40,7 +40,9 @@ function rollWithSeedConsumptionFixed(startIndex, gachaConfig, seeds, lastDrawIn
     else currentRarity = 'rare';
     
     const characterPool = gachaConfig.pool[currentRarity] || [];
-    if (characterPool.length === 0) return { seedsConsumed: 2, finalChar: { name: "該当なし", id: null }, rarity: currentRarity, debug: null };
+    if (characterPool.length === 0) {
+        return { seedsConsumed: 2, finalChar: { name: "該当なし", id: null }, rarity: currentRarity, debug: null };
+    }
     
     // 2. キャラクター判定（最初の抽選）
     const totalChars = characterPool.length;
@@ -128,7 +130,7 @@ function rollGuaranteedUber(startIndex, gachaConfig, seeds) {
 }
 
 /**
- * 【新規】11連確定等の連続計算を完全に別データとして管理
+ * 11連確定等の連続計算を完全に別データとして管理
  * 10回のロールを線形に連続して行い、デバッグログを保持する
  */
 function calculateSequentialGuaranteed(startSeedIndex, gachaConfig, allSeeds, initialLastDraw, normalRollsCount = 10) {
