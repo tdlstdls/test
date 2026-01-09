@@ -39,7 +39,7 @@ function generateDetailedCalcCells(seedIndex, seeds, tableData) {
  * 通常のガチャ結果セル（1マス分）を生成する
  */
 function generateCell(seedIndex, id, colIndex, tableData, seeds, highlightMap, isSimulationMode) {
-    const cell = tableData[seedIndex]?.[colIndex];
+    const cell = tableData[seedIndex]?.cells?.[colIndex];
     if (!cell || !cell.roll) return `<td>-</td>`;
     
     const r = cell.roll;
@@ -49,17 +49,40 @@ function generateCell(seedIndex, id, colIndex, tableData, seeds, highlightMap, i
     const gachaConfig = gachaMasterData.gachas[id];
     const isSpecialGacha = gachaConfig && (gachaConfig.name.includes("プラチナ") || gachaConfig.name.includes("レジェンド"));
 
-    if (isSimulationMode && highlightMap.get(seedIndex) === id) {
-        style = (r.rarity === 'uber' || r.rarity === 'legend') ? 'background:#32CD32;' : 'background:#98FB98;';
+    const charId = r.finalChar.id;
+    const charIdStr = String(charId);
+
+    // --- 期間限定キャラ判定 ---
+    let isLimited = false;
+    if (typeof limitedCats !== 'undefined' && Array.isArray(limitedCats)) {
+        if (limitedCats.includes(parseInt(charId)) || limitedCats.includes(charIdStr)) {
+            isLimited = true;
+        }
+    }
+
+    // --- Findターゲット等のハイライト判定 ---
+    // userPrioritizedTargets に含まれるキャラを緑色でハイライト
+    const isPrioritized = userPrioritizedTargets.includes(charId) || userPrioritizedTargets.includes(charIdStr);
+
+    if (isPrioritized) {
+        style = 'background-color: #6EFF72; font-weight: bold;'; // ユーザー指定の緑色ハイライト
+    } else if (isSimulationMode && highlightMap.get(seedIndex) === id) {
+        if (isLimited || r.rarity === 'uber' || r.rarity === 'legend') {
+            style = 'background:#32CD32;';
+        } else {
+            style = 'background:#98FB98;';
+        }
     } else {
-        if (r.rarity === 'legend') {
-            style = 'background:#ffcc00;';
-        } else if (r.rarity === 'uber') {
-            if (!isSpecialGacha) {
-                style = 'background:#FF4C4C;';
-            }
-        } else if (r.rarity === 'super') {
-            style = 'background:#ffff33;';
+        if (isLimited) {
+            style = 'background-color: #66FFFF;';
+        } else if (isSpecialGacha) {
+            style = '';
+        } else {
+            const sv = seeds[seedIndex] % 10000;
+            if(sv >= 9970) style = 'background-color: #DDA0DD;';
+            else if(sv >= 9940) style = 'background-color: #de59de;';
+            else if(sv >= 9500) style = 'background-color: #FF4C4C;';
+            else if(sv >= 6970) style = 'background-color: #ffff33;';
         }
     }
 
